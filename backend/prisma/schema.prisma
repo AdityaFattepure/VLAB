@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("student") // "teacher" | "student"
+  createdAt    DateTime @default(now())
+
+  taughtClasses Class[]       @relation("TeacherClasses")
+  createdLabs   Lab[]         @relation("CreatedLabs")
+  memberships   ClassMember[]
+  sessions      Session[]
+}
+
+model Class {
+  id        String   @id @default(cuid())
+  name      String
+  joinCode  String   @unique
+  teacherId String
+  createdAt DateTime @default(now())
+
+  teacher     User         @relation("TeacherClasses", fields: [teacherId], references: [id])
+  members     ClassMember[]
+  assignments Assignment[]
+}
+
+model ClassMember {
+  id        String   @id @default(cuid())
+  classId   String
+  studentId String
+  joinedAt  DateTime @default(now())
+
+  class   Class @relation(fields: [classId], references: [id], onDelete: Cascade)
+  student User  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, studentId])
+}
+
+model Lab {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @default("")
+  template    String // "linux-basic" | "docker-dind"
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  creator     User         @relation("CreatedLabs", fields: [createdBy], references: [id])
+  tasks       Task[]
+  assignments Assignment[]
+}
+
+model Task {
+  id                     String  @id @default(cuid())
+  labId                  String
+  order                  Int
+  title                  String
+  description            String  @default("")
+  checkCommand           String
+  expectedOutputContains String?
+  expectedExitCode       Int     @default(0)
+
+  lab     Lab          @relation(fields: [labId], references: [id], onDelete: Cascade)
+  results TaskResult[]
+
+  @@unique([labId, order])
+}
+
+model Assignment {
+  id        String    @id @default(cuid())
+  labId     String
+  classId   String
+  dueAt     DateTime?
+  createdAt DateTime  @default(now())
+
+  lab     Lab    @relation(fields: [labId], references: [id], onDelete: Cascade)
+  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  sessions Session[]
+
+  @@unique([labId, classId])
+}
+
+model Session {
+  id             String    @id @default(cuid())
+  assignmentId   String
+  studentId      String
+  containerId    String?
+  containerName  String?
+  status         String    @default("starting") // starting | ready | stopped | error
+  errorMessage   String?
+  startedAt      DateTime  @default(now())
+  readyAt        DateTime?
+  lastActivityAt DateTime  @default(now())
+  resetCount     Int       @default(0)
+
+  assignment Assignment   @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  results    TaskResult[]
+  commands   CommandLog[]
+
+  @@unique([assignmentId, studentId])
+}
+
+model TaskResult {
+  id            String    @id @default(cuid())
+  sessionId     String
+  taskId        String
+  passed        Boolean   @default(false)
+  firstPassedAt DateTime?
+  checkedAt     DateTime  @default(now())
+  output        String?
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  task    Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, taskId])
+}
+
+model CommandLog {
+  id        String   @id @default(cuid())
+  sessionId String
+  command   String
+  ts        DateTime
+  createdAt DateTime @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, ts, command])
+  @@index([sessionId, ts])
+}
