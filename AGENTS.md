@@ -70,18 +70,67 @@ When `graphify-out/graph.json` exists:
 
 ## Project status
 
-This is a greenfield project. The stack, build commands, test commands, and
-directory layout are not chosen yet.
+**VLab** — a container-based virtual lab. The stack is chosen and the MVP works
+end to end. See `README.md` and `docs/adr/0001-architecture-choices.md`.
 
-When the stack is chosen, update this file with:
+Stack: Node 22 + Express 5 + TypeScript (run with `tsx`) + Prisma 6 / SQLite,
+React 19 + Vite + Tailwind 4, `dockerode` + `ws`, Docker Compose at runtime.
 
-- install / dev / build / test / lint / typecheck commands
-- the source layout and where new code belongs
-- the test framework and where tests live
-- any generated files that must not be edited
+### Commands
 
-Until then, do not assume a language, framework, or package manager. Ask before
-scaffolding.
+Whole stack (preferred): `docker compose up --build` → app on
+http://localhost:5173
+
+Backend (`backend/`):
+
+- `npm install`
+- `npm run dev` (watch) / `npm start` (port 3000)
+- `npm run typecheck`
+- `npm run db:push`, `npm run db:seed`, `npm run db:reset-demo`
+- `npm run smoke` — end-to-end test against `BASE_URL` (default
+  `http://localhost:3000`)
+- `npm run spike` — low-level Docker / DinD / exec check
+
+Frontend (`frontend/`):
+
+- `npm install`
+- `npm run dev` (port 5173, proxies `/api` and `/ws` to 3000)
+- `npm run build` (`tsc --noEmit` then `vite build`)
+
+Helper scripts (repo root):
+
+- `powershell -File scripts/preflight.ps1` — demo-day checks
+- `powershell -File scripts/reset-demo.ps1` — clean demo state
+- `node scripts/capture-screenshots.mjs` — regenerate `docs/screenshots/`
+
+Local backend runs on Windows need
+`DOCKER_SOCKET=npipe:////./pipe/dockerDesktopLinuxEngine` in `backend/.env`;
+inside compose it is `/var/run/docker.sock`.
+
+### Layout
+
+- `backend/src/routes` — auth, classes, labs, tasks, assignments, sessions
+- `backend/src/services` — docker, session, checker, command log, dashboard
+- `backend/src/ws` — terminal WebSocket and the shared exec attach manager
+- `backend/src/jobs` — 30s checker and idle cleanup schedulers
+- `backend/prisma` — `schema.prisma`, `seed.ts`, `reset-demo.ts`
+- `frontend/src/{pages,components,hooks,lib,auth,api}`
+- `lab-images/{docker-dind,linux-basic}` — the lab container images
+- `docs/` — ADRs, review-2 outline, captured screenshots
+
+### Tests
+
+Vitest is installed (`npm test`) but there are no unit tests yet. Current
+verification is `npm run typecheck` plus the smoke test, which covers login,
+provisioning a real DinD container, the terminal over WebSocket, command
+logging, the checker, the dashboard, and cleanup. Add unit tests alongside new
+logic.
+
+### Generated files — do not edit
+
+- `frontend/dist/`, `backend/node_modules/`, `backend/prisma/dev.db`
+- `graphify-out/` when the graph is built
+
 
 ## Working agreements
 
