@@ -2,6 +2,7 @@ import type { TaskResult } from '@prisma/client';
 import { config } from '../config.js';
 import { HttpError } from '../lib/errors.js';
 import { prisma } from '../prisma.js';
+import { evaluateCheck } from './checker.logic.js';
 import { execInContainer } from './docker/docker.client.js';
 
 // One check run at a time per session; the 30s background job and the student's
@@ -62,15 +63,21 @@ async function doRunChecks(
         { workdir: '/root', timeoutMs: (config.checkTimeoutSeconds + 5) * 1000 },
       );
 
-      output = `${result.stdout}${result.stderr ? `\n${result.stderr}` : ''}`.trim().slice(0, 4000);
-      passed =
-        !result.timedOut &&
-        result.exitCode === task.expectedExitCode &&
-        (!task.expectedOutputContains || result.stdout.includes(task.expectedOutputContains));
-
-      if (result.timedOut) {
-        output = `Timed out after ${config.checkTimeoutSeconds}s\n${output}`;
-      }
+      const verdict = evaluateCheck(
+        {
+          exitCode: result.exitCode,
+          stdout: result.stdout,
+          stderr: result.stderr,
+          timedOut: result.timedOut,
+        },
+        {
+          expectedExitCode: task.expectedExitCode,
+          expectedOutputContains: task.expectedOutputContains,
+        },
+        config.checkTimeoutSeconds,
+      );
+      passed = verdict.passed;
+      output = verdict.output;
     } catch (err) {
       output = `Check failed to run: ${err instanceof Error ? err.message : String(err)}`;
     }
