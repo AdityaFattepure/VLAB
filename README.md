@@ -395,7 +395,13 @@ Capacity note: each DinD student reserves 1 GB. A 4 GB Docker Desktop VM comfort
 ├── lab-images/
 │   ├── docker-dind/          # docker:dind + bash + logging + warm pulls
 │   └── linux-basic/          # ubuntu:24.04 + tools
-└── docs/screenshots/         # placeholders for the report
+├── scripts/
+│   ├── preflight.ps1         # demo-day Windows checks
+│   └── capture-screenshots.mjs
+└── docs/
+    ├── REVIEW2-OUTLINE.md    # slide-by-slide deck outline
+    ├── adr/                  # architecture decisions
+    └── screenshots/          # captured from a live run
 ```
 
 ---
@@ -459,6 +465,13 @@ $env:BASE_URL="http://localhost:3000"; npm run smoke
 ```
 
 Expected final line: `SMOKE OK`.
+
+A Windows demo-day preflight (engine, ports, images, health, credentials):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/preflight.ps1
+```
+
 
 ---
 
@@ -557,19 +570,28 @@ This project was demonstrated locally; no AWS resources are deployed.
 
 ## Screenshots
 
-Placeholders for the review report. Capture these from a live run:
+Captured from a live run into `docs/screenshots/`. Regenerate them with headless
+Edge against a running stack:
+
+```bash
+node scripts/capture-screenshots.mjs
+```
+
+| File | What it shows |
+| --- | --- |
+| `docs/screenshots/login.png` | Login screen with the demo-account shortcuts |
+| `docs/screenshots/teacher-live.png` | Student × task grid, live container, activity feed |
+| `docs/screenshots/teacher-drawer.png` | Read-only terminal + command history for one student |
+| `docs/screenshots/student-labs.png` | Student lab list with per-task progress |
+| `docs/screenshots/student-terminal.png` | Terminal, task checklist, and progress in one view |
+
+Two are worth capturing by hand because they are timing- or host-specific:
 
 | File | What to capture |
 | --- | --- |
-| `docs/screenshots/login.png` | Login screen with demo account shortcuts |
-| `docs/screenshots/teacher-empty.png` | Teacher dashboard before students start |
-| `docs/screenshots/student-provisioning.png` | Spinner while the DinD container starts |
-| `docs/screenshots/student-terminal.png` | Terminal with `docker ps` and the task checklist |
-| `docs/screenshots/teacher-live.png` | Grid with names, progress, status, activity feed |
-| `docs/screenshots/teacher-drawer.png` | Read-only terminal + command history |
-| `docs/screenshots/isolation.png` | Host `docker ps` next to the student's inner `docker ps` |
+| `docs/screenshots/student-provisioning.png` | The spinner while the DinD container starts |
+| `docs/screenshots/isolation.png` | Host `docker ps --filter name=vlab-` next to the student's inner `docker ps` |
 
-The `docs/screenshots/` directory is committed with a `.gitkeep`; add the PNGs there and reference them in the report.
 
 ---
 
