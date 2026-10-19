@@ -4,7 +4,8 @@ import { prisma } from '../prisma.js';
 /**
  * The teacher lands on the assignment their class is actually working on.
  * Falling back to "newest created" would show an empty grid when a second lab
- * was assigned later but nobody has started it.
+ * was assigned later but nobody has started it, so with no activity at all we
+ * keep the first lab assigned to the class.
  */
 async function pickDefaultAssignment<T extends { id: string }>(
   classId: string,
@@ -17,7 +18,7 @@ async function pickDefaultAssignment<T extends { id: string }>(
   });
   return (
     (latestSession ? assignments.find((a) => a.id === latestSession.assignmentId) : undefined) ??
-    assignments[0]
+    assignments.at(-1)
   );
 }
 
