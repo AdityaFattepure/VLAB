@@ -1,0 +1,14 @@
+{
+  "terminal.integrated.profiles.windows": {
+    "OpenCode (this VLab chat)": {
+      "path": "powershell.exe",
+      "args": [
+        "-NoLogo",
+        "-NoExit",
+        "-Command",
+        "opencode --session ses_eaaf4a662ffeWu6qSefAKxc0se"
+      ],
+      "icon": "comment-discussion"
+    }
+  }
+}
