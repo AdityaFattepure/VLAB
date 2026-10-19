@@ -1,0 +1,22 @@
+# Shared shell configuration for VLab lab containers.
+# PROMPT_COMMAND appends every executed command to a log the backend tails.
+# Advisory only: a student can unset it or switch to sh.
+
+__vlab_log_command() {
+  local cmd ts
+  cmd=$(history 1 2>/dev/null | sed -e 's/^ *[0-9]* *//')
+  if [ -n "$cmd" ]; then
+    # EPOCHREALTIME is seconds.microseconds; the first 13 digits are epoch ms.
+    ts=${EPOCHREALTIME/./}
+    ts=${ts:0:13}
+    printf '%s|%s\n' "$ts" "$cmd" >> /var/log/vlab/commands.log 2>/dev/null
+  fi
+}
+
+export HISTFILE=/root/.bash_history
+export HISTSIZE=2000
+export HISTFILESIZE=5000
+export PROMPT_COMMAND=__vlab_log_command
+export PS1='student@vlab:\w$ '
+export TERM=xterm-256color
+export CLICOLOR=1

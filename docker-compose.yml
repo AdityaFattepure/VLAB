@@ -1,0 +1,87 @@
+name: vlab
+
+services:
+  # Pull-through cache. The inner dockerd of every student lab is started with
+  # --registry-mirror pointing here, so demo images survive bad campus Wi-Fi.
+  registry:
+    image: registry:2
+    environment:
+      REGISTRY_PROXY_REMOTEURL: https://registry-1.docker.io
+      REGISTRY_PROXY_TTL: 168h
+    ports:
+      - "5001:5000"
+    volumes:
+      - registry-cache:/var/lib/registry
+    restart: unless-stopped
+
+  # Build-only services: `docker compose up --build` guarantees the lab images
+  # exist on the host daemon before the backend creates student containers.
+  linux-basic-image:
+    build: ./lab-images/linux-basic
+    image: vlab/linux-basic:latest
+    entrypoint: ["/bin/true"]
+    restart: "no"
+
+  docker-dind-image:
+    build: ./lab-images/docker-dind
+    image: vlab/docker-dind:latest
+    entrypoint: ["/bin/true"]
+    restart: "no"
+
+  backend:
+    build: ./backend
+    image: vlab/backend:latest
+    environment:
+      PORT: 3000
+      DATABASE_URL: file:/app/data/vlab.db
+      JWT_SECRET: ${JWT_SECRET:-vlab-dev-secret-change-me}
+      JWT_EXPIRES_IN: 7d
+      DOCKER_SOCKET: /var/run/docker.sock
+      VLAB_IMAGE_LINUX_BASIC: vlab/linux-basic:latest
+      VLAB_IMAGE_DOCKER_DIND: vlab/docker-dind:latest
+      DIND_MEMORY_MB: ${DIND_MEMORY_MB:-1024}
+      BASIC_MEMORY_MB: ${BASIC_MEMORY_MB:-512}
+      CHECKER_INTERVAL_SECONDS: ${CHECKER_INTERVAL_SECONDS:-30}
+      CHECK_TIMEOUT_SECONDS: ${CHECK_TIMEOUT_SECONDS:-15}
+      SESSION_IDLE_MINUTES: ${SESSION_IDLE_MINUTES:-30}
+      REGISTRY_MIRROR: ${REGISTRY_MIRROR:-http://host.docker.internal:5001}
+    volumes:
+      # The backend controls Docker; students never see this socket.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - vlab-data:/app/data
+    ports:
+      - "3000:3000"
+    depends_on:
+      linux-basic-image:
+        condition: service_completed_successfully
+      docker-dind-image:
+        condition: service_completed_successfully
+      registry:
+        condition: service_started
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    image: vlab/frontend:latest
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  vlab-data:
+  registry-cache:
