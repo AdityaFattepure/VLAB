@@ -22,6 +22,7 @@ const CLASS_NAME = 'CBADL — Batch A';
 const JOIN_CODE = 'CBADL1';
 
 const DOCKER_LAB = {
+  id: 'seed-lab-docker-basics',
   title: 'Docker Basics',
   template: 'docker-dind',
   description:
@@ -57,6 +58,7 @@ const DOCKER_LAB = {
 };
 
 const LINUX_LAB = {
+  id: 'seed-lab-linux-basics',
   title: 'Linux Basics',
   template: 'linux-basic',
   description: 'A plain Ubuntu container. Practise files and users; the checker verifies the filesystem.',
@@ -116,9 +118,11 @@ async function main() {
   }
 
   async function upsertLab(lab: typeof DOCKER_LAB) {
-    const existing = await prisma.lab.findFirst({
-      where: { title: lab.title, createdBy: teacher.id },
-    });
+    // Stable ids keep the seed idempotent even if the teacher renames a lab.
+    // The title fallback adopts labs created before ids were pinned.
+    const existing =
+      (await prisma.lab.findUnique({ where: { id: lab.id } })) ??
+      (await prisma.lab.findFirst({ where: { title: lab.title, createdBy: teacher.id } }));
     const row = existing
       ? await prisma.lab.update({
           where: { id: existing.id },
@@ -126,6 +130,7 @@ async function main() {
         })
       : await prisma.lab.create({
           data: {
+            id: lab.id,
             title: lab.title,
             description: lab.description,
             template: lab.template,

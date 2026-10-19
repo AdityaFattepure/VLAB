@@ -29,6 +29,7 @@ export default function StudentLabs() {
   const [notice, setNotice] = useState('');
 
   const hasClass = (classes?.length ?? 0) > 0;
+  const classesLoaded = classes !== null;
 
   async function joinClass(event: FormEvent) {
     event.preventDefault();
@@ -117,7 +118,7 @@ export default function StudentLabs() {
         </div>
       )}
 
-      {!hasClass && (
+      {classesLoaded && !hasClass && (
         <div className="mt-8 rounded-2xl border border-slate-800 bg-slate-900/40 p-8">
           <div className="mx-auto max-w-md text-center">
             <div className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-indigo-500/15 text-xl text-indigo-300 ring-1 ring-indigo-500/30">
