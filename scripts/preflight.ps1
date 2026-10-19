@@ -58,8 +58,8 @@ foreach ($image in 'vlab/linux-basic:latest', 'vlab/docker-dind:latest', 'vlab/b
     if ($images -contains $image) { Pass "image $image" } else { Fail "missing image $image" }
 }
 
-Section "VLab containers on the host"
-$vlab = docker ps --filter "name=vlab-" --format '{{.Names}}  {{.Status}}   {{.Image}}' 2>$null
+Section "Student lab containers"
+$vlab = docker ps --filter "label=vlab.session" --format '{{.Names}}  {{.Status}}   {{.Image}}' 2>$null
 if ($vlab) { $vlab } else { Info "no student lab containers running" }
 
 Section "Demo"

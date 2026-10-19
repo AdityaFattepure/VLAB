@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:reset-demo": "tsx prisma/reset-demo.ts",
     "test": "vitest run",
     "spike": "tsx scripts/spike.ts",
     "smoke": "tsx scripts/smoke.ts"

@@ -273,7 +273,18 @@ curl http://localhost:3000/api/health
 
 `{"ok":true,"docker":true,…}` means the API can reach the daemon.
 
+### Reset between rehearsals
+
+The smoke test and repeated demos leave sessions and passed tasks behind. Clear them so the next demo starts at 0%:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/reset-demo.ps1
+```
+
+It removes every container labeled `vlab.session`, then deletes sessions, task results, and command logs. Accounts, the class, labs, tasks, and assignments are kept. The seeded logins still work.
+
 ---
+
 
 ## Demo script (review 2)
 
@@ -290,9 +301,9 @@ Aim for 6–8 minutes. Two browser tabs are enough; three students looks better.
    ```
 4. **Prove isolation** on the host, in a separate terminal:
    ```bash
-   docker ps --filter name=vlab-
+   docker ps --filter label=vlab.session --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'
    ```
-   The host only sees VLab lab containers. Inside the student terminal, `docker ps` sees `web`, `myapp`, etc. Two different daemons.
+   The host sees one VLab sandbox per student, never the inner `web` container. Inside the student terminal, `docker ps` sees `web`, `myapp`, etc. Two different daemons.
 5. Click **Check my work** — all three tasks turn green immediately. (Or wait 30s for the automatic pass.)
 6. **Teacher tab** — the grid now shows Aarav Sharma, live status, 3/3, 100%, last command. The activity feed shows the typed commands. Click the row: command history and a **read-only live terminal** appear.
 7. Optional: **Reset lab** from the teacher panel, then **Stop all labs**. Show that the dashboard status changes and `docker ps` on the host is clean.
