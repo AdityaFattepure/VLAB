@@ -120,11 +120,12 @@ inside compose it is `/var/run/docker.sock`.
 
 ### Tests
 
-Vitest is installed (`npm test`) but there are no unit tests yet. Current
-verification is `npm run typecheck` plus the smoke test, which covers login,
-provisioning a real DinD container, the terminal over WebSocket, command
-logging, the checker, the dashboard, and cleanup. Add unit tests alongside new
-logic.
+Vitest is installed (`npm test`). Unit tests live next to the module they cover
+(`backend/src/**/*.test.ts`); `checker.logic.test.ts` covers the check verdict
+rules. Current verification is `npm test` + `npm run typecheck` plus the smoke
+test, which covers login, provisioning a real DinD container, the terminal over
+WebSocket, command logging, the checker, the dashboard, and cleanup. Add unit
+tests alongside new logic.
 
 ### Generated files — do not edit
 
