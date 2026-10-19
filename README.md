@@ -27,6 +27,7 @@ Open **http://localhost:5173**.
 - [Project layout](#project-layout)
 - [Local development](#local-development)
 - [Verification](#verification)
+- [Manual testing guide](docs/TESTING-GUIDE.md)
 - [API summary](#api-summary)
 - [Switching to PostgreSQL](#switching-to-postgresql)
 - [AWS (stretch, not deployed)](#aws-stretch-not-deployed)
@@ -476,6 +477,9 @@ $env:BASE_URL="http://localhost:3000"; npm run smoke
 ```
 
 Expected final line: `SMOKE OK`.
+
+For the full click-by-click walkthrough with an explanation of what happens at
+each step, see [`docs/TESTING-GUIDE.md`](docs/TESTING-GUIDE.md).
 
 A Windows demo-day preflight (engine, ports, images, health, credentials):
 
