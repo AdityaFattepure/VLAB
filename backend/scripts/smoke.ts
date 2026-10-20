@@ -129,6 +129,17 @@ async function main() {
   const ws = await openTerminal(session.id, student.token);
   check(true, 'terminal WebSocket attached');
 
+  // A session row is reused after a stop, and its command history is kept.
+  // Ignore entries that were already there so this run waits for the shell to
+  // execute the command we just typed instead of matching an older copy.
+  const knownCommands = new Set(
+    (
+      await api(`/api/sessions/${session.id}/commands?limit=200`, {
+        token: student.token,
+      })
+    ).map((entry: any) => entry.id),
+  );
+
   const solution = [
     'docker --version',
     "docker info --format '{{.ServerVersion}}'",
@@ -140,8 +151,15 @@ async function main() {
     await typeCommand(ws, command);
     await poll(
       async () => {
-        const logs = await api(`/api/sessions/${session.id}/commands?limit=50`, { token: student.token });
-        return logs.some((l: any) => l.command === command) ? true : null;
+        const logs = await api(`/api/sessions/${session.id}/commands?limit=50`, {
+          token: student.token,
+        });
+        const fresh = logs.find((l: any) => l.command === command && !knownCommands.has(l.id));
+        if (fresh) {
+          knownCommands.add(fresh.id);
+          return true;
+        }
+        return null;
       },
       90000,
       `command to be logged: ${command}`,
