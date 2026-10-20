@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import type { User } from '../api/types';
+import type { Role, User } from '../api/types';
 
 const STORAGE_KEY = 'vlab.auth';
 
@@ -16,7 +16,7 @@ interface StoredAuth {
 }
 
 interface ApiOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
 }
 
@@ -25,9 +25,10 @@ interface AuthValue {
   user: User | null;
   ready: boolean;
   login: (email: string, password: string) => Promise<User>;
-  register: (name: string, email: string, password: string) => Promise<User>;
+  register: (name: string, email: string, password: string, role: Role) => Promise<User>;
   logout: () => void;
   api: <T>(path: string, options?: ApiOptions) => Promise<T>;
+  download: (path: string) => Promise<Blob>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -105,6 +106,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [auth],
   );
 
+  const download = useCallback(
+    async (path: string): Promise<Blob> => {
+      const res = await fetch(path, {
+        headers: auth?.token ? { authorization: `Bearer ${auth.token}` } : {},
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        let message = `Request failed (${res.status})`;
+        try {
+          message = JSON.parse(text)?.error ?? message;
+        } catch {
+          /* not JSON */
+        }
+        throw new Error(message);
+      }
+      return res.blob();
+    },
+    [auth],
+  );
+
   const login = useCallback(
     async (email: string, password: string) => {
       const result = await api<{ token: string; user: User }>('/auth/login', {
@@ -120,10 +141,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const register = useCallback(
-    async (name: string, email: string, password: string) => {
+    async (name: string, email: string, password: string, role: Role) => {
       const result = await api<{ token: string; user: User }>('/auth/register', {
         method: 'POST',
-        body: { name, email, password },
+        body: { name, email, password, role },
       });
       const next = { token: result.token, user: result.user };
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
@@ -148,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         api,
+        download,
       }}
     >
       {children}

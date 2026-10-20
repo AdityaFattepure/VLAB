@@ -7,12 +7,13 @@ import Login from './pages/Login';
 import SessionView from './pages/SessionView';
 import StudentLabs from './pages/StudentLabs';
 import TeacherDashboard from './pages/TeacherDashboard';
+import TeacherOverview from './pages/TeacherOverview';
 
 function Splash() {
   return (
     <div className="grid min-h-screen place-items-center">
       <div className="text-center">
-        <div className="mx-auto h-9 w-9 animate-spin rounded-full border-2 border-slate-700 border-t-indigo-400" />
+        <div className="mx-auto h-9 w-9 animate-spin rounded-full border-2 border-slate-200 border-t-[#123a63]" />
         <div className="mt-3 text-xs uppercase tracking-[0.2em] text-slate-500">Loading VLab</div>
       </div>
     </div>
@@ -45,6 +46,14 @@ export default function App() {
 
       <Route
         path="/teacher"
+        element={
+          <Protected role="teacher">
+            <TeacherOverview />
+          </Protected>
+        }
+      />
+      <Route
+        path="/teacher/classes/:id"
         element={
           <Protected role="teacher">
             <TeacherDashboard />

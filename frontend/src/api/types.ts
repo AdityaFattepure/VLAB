@@ -30,20 +30,62 @@ export interface ClassSummary {
   id: string;
   name: string;
   joinCode: string;
+  courseCode?: string;
+  courseTitle?: string;
+  courseShort?: string;
+  section?: string;
+  batch?: string;
+  schedule?: string;
+  room?: string;
   members?: number;
   assignments?: number;
+  live?: number;
+  pendingSubmissions?: number;
+  nextDueAt?: string | null;
   teacherName?: string;
+  joinedAt?: string;
+}
+
+export type SubmissionStatus = 'draft' | 'submitted' | 'reviewed';
+
+export interface Submission {
+  id: string;
+  status: SubmissionStatus;
+  note: string;
+  fileName: string | null;
+  fileType: string | null;
+  fileSize: number | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  feedback: string;
+  grade: number | null;
+  fileUrl: string | null;
 }
 
 export interface StudentAssignment {
   id: string;
   dueAt: string | null;
-  class: { id: string; name: string; teacherName: string };
+  instructions: string;
+  requiresSubmission: boolean;
+  class: {
+    id: string;
+    name: string;
+    section: string;
+    batch: string;
+    schedule: string;
+    courseTitle: string;
+    courseCode: string;
+    teacherName: string;
+  };
   lab: {
     id: string;
     title: string;
     description: string;
     template: string;
+    code: string;
+    objective: string;
+    co: string;
+    estimatedMinutes: number;
     tasks: { id: string; order: number; title: string; description: string }[];
   };
   session: {
@@ -55,6 +97,7 @@ export interface StudentAssignment {
     resetCount: number;
     errorMessage: string | null;
   } | null;
+  submission: Submission | null;
   results: ResultRow[];
 }
 
@@ -75,7 +118,7 @@ export interface SessionDetail {
     id: string;
     dueAt: string | null;
     class: { id: string; name: string };
-    lab: { id: string; title: string; description: string; template: string };
+    lab: { id: string; title: string; description: string; template: string; code?: string };
   };
   tasks: TaskSummary[];
   results: ResultRow[];
@@ -91,6 +134,19 @@ export interface DashboardTask {
   passedNow: boolean;
   checkedAt: string | null;
   output: string | null;
+}
+
+export interface DashboardSubmission {
+  id: string;
+  status: SubmissionStatus;
+  note: string;
+  fileName: string | null;
+  fileType: string | null;
+  fileSize: number | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  feedback: string;
+  grade: number | null;
 }
 
 export interface DashboardStudent {
@@ -110,23 +166,53 @@ export interface DashboardStudent {
     lastCommand: string | null;
     lastCommandAt: string | null;
   } | null;
+  submission: DashboardSubmission | null;
   tasks: DashboardTask[];
   completed: number;
   total: number;
   progress: number;
 }
 
+export interface AssignmentSummary {
+  id: string;
+  labId: string;
+  labTitle: string;
+  labCode: string;
+  dueAt: string | null;
+  requiresSubmission: boolean;
+  taskCount: number;
+  submissionCount: number;
+  submitted: number;
+  reviewed: number;
+}
+
 export interface Dashboard {
-  class: { id: string; name: string; joinCode: string };
+  class: {
+    id: string;
+    name: string;
+    joinCode: string;
+    courseCode: string;
+    courseTitle: string;
+    courseShort: string;
+    section: string;
+    batch: string;
+    schedule: string;
+    room: string;
+  };
   assignment: {
     id: string;
     labId: string;
     labTitle: string;
+    labCode: string;
     template: string;
+    objective: string;
+    co: string;
     dueAt: string | null;
+    instructions: string;
+    requiresSubmission: boolean;
     taskCount: number;
   } | null;
-  assignments: { id: string; labTitle: string; dueAt: string | null }[];
+  assignments: AssignmentSummary[];
   students: DashboardStudent[];
   activity: {
     studentId: string;
@@ -135,7 +221,13 @@ export interface Dashboard {
     command: string;
     ts: string;
   }[];
-  totals: { students: number; running: number; completed: number };
+  totals: {
+    students: number;
+    running: number;
+    completed: number;
+    submitted: number;
+    reviewed: number;
+  };
 }
 
 export interface CommandEntry {
@@ -149,7 +241,29 @@ export interface Lab {
   title: string;
   description: string;
   template: string;
+  code?: string;
+  objective?: string;
+  co?: string;
+  estimatedMinutes?: number;
   taskCount: number;
   assignmentCount: number;
   tasks: TaskSummary[];
+}
+
+export interface SubmissionRosterEntry {
+  id: string;
+  name: string;
+  email: string;
+  submission: Submission | null;
+}
+
+export interface SubmissionRoster {
+  assignment: {
+    id: string;
+    labTitle: string;
+    labCode: string;
+    dueAt: string | null;
+    requiresSubmission: boolean;
+  };
+  students: SubmissionRosterEntry[];
 }
