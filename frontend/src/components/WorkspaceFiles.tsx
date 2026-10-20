@@ -22,7 +22,7 @@ function targetPath(currentDir: string, entered: string): string {
   return `${currentDir === '/' ? '' : currentDir}/${entered}`.replace(/\/+/g, '/');
 }
 
-export function WorkspaceFiles({
+export default function WorkspaceFiles({
   sessionId,
   readOnly = false,
   className,

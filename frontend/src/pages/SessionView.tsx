@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { SessionDetail } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -7,6 +7,23 @@ import { StatusPill } from '../components/StatusPill';
 import { TerminalView } from '../components/TerminalView';
 import { usePolling } from '../hooks/usePolling';
 import { cn, formatDue, timeAgo } from '../lib/format';
+
+const WorkspaceFiles = lazy(() => import('../components/WorkspaceFiles'));
+const DockerInspector = lazy(() => import('../components/DockerInspector'));
+
+type WorkspaceTab = 'terminal' | 'code' | 'docker';
+
+const workspaceTabs: { id: WorkspaceTab; label: string }[] = [
+  { id: 'terminal', label: 'Terminal' },
+  { id: 'code', label: 'Code' },
+  { id: 'docker', label: 'Docker' },
+];
+
+function WorkspaceLoading({ label }: { label: string }) {
+  return (
+    <div className="grid h-full place-items-center text-xs text-slate-500">Loading {label}…</div>
+  );
+}
 
 export default function SessionView() {
   const { id } = useParams<{ id: string }>();
@@ -22,6 +39,11 @@ export default function SessionView() {
   const [checking, setChecking] = useState(false);
   const [busy, setBusy] = useState<'reset' | 'stop' | 'start' | null>(null);
   const [notice, setNotice] = useState('');
+  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>('terminal');
+
+  useEffect(() => {
+    setWorkspaceTab('terminal');
+  }, [id]);
 
   async function check() {
     if (!id) return;
@@ -328,7 +350,54 @@ export default function SessionView() {
         </aside>
 
         {session.status === 'ready' ? (
-          <TerminalView sessionId={session.id} className="h-[calc(100vh-190px)] min-h-[460px]" />
+          <section className="flex h-[calc(100vh-190px)] min-h-[460px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <div
+              role="tablist"
+              aria-label="Lab workspace"
+              className="flex shrink-0 items-end gap-1 border-b border-slate-200 bg-slate-50 px-2 pt-2"
+            >
+              {workspaceTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={workspaceTab === tab.id}
+                  onClick={() => setWorkspaceTab(tab.id)}
+                  className={cn(
+                    'rounded-t border border-b-0 px-3 py-1.5 text-[11px] font-medium',
+                    workspaceTab === tab.id
+                      ? 'border-slate-200 bg-white text-slate-900'
+                      : 'border-transparent text-slate-500 hover:text-slate-800',
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+              <span className="ml-auto pb-2 pr-1 text-[10px] text-slate-400">
+                {workspaceTab === 'code'
+                  ? 'Files under /root'
+                  : workspaceTab === 'docker'
+                    ? 'Inner Docker daemon'
+                    : 'Live shell'}
+              </span>
+            </div>
+
+            <div className="min-h-0 flex-1">
+              {workspaceTab === 'terminal' && (
+                <TerminalView bare sessionId={session.id} className="h-full" />
+              )}
+              {workspaceTab === 'code' && (
+                <Suspense fallback={<WorkspaceLoading label="editor" />}>
+                  <WorkspaceFiles sessionId={session.id} />
+                </Suspense>
+              )}
+              {workspaceTab === 'docker' && (
+                <Suspense fallback={<WorkspaceLoading label="Docker objects" />}>
+                  <DockerInspector sessionId={session.id} />
+                </Suspense>
+              )}
+            </div>
+          </section>
         ) : (
           <div className="flex min-h-[460px] flex-col items-center justify-center rounded-lg border border-slate-200 bg-white p-8 text-center">
             <div className="text-sm font-medium text-slate-800">This lab is stopped</div>

@@ -24,7 +24,7 @@ function Empty({ children }: { children: string }) {
   );
 }
 
-export function DockerInspector({
+export default function DockerInspector({
   sessionId,
   className,
 }: {

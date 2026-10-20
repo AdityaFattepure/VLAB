@@ -68,6 +68,15 @@ body {
   }
 }
 
+.cm-theme,
+.cm-editor {
+  height: 100%;
+}
+
+.cm-scroller {
+  font-family: var(--font-mono);
+}
+
 .xterm-viewport::-webkit-scrollbar {
   width: 8px;
 }
