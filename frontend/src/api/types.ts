@@ -236,6 +236,66 @@ export interface CommandEntry {
   ts: string;
 }
 
+export interface WorkspaceFileEntry {
+  name: string;
+  path: string;
+  type: 'file' | 'directory';
+  size: number;
+}
+
+export interface WorkspaceListing {
+  path: string;
+  entries: WorkspaceFileEntry[];
+}
+
+export interface WorkspaceFileContent {
+  path: string;
+  content: string;
+  size: number;
+  binary: boolean;
+}
+
+export interface DockerContainerRow {
+  id: string;
+  name: string;
+  image: string;
+  state: string;
+  status: string;
+  ports: string;
+  createdAt: string;
+  runningFor: string;
+  command: string;
+}
+
+export interface DockerImageRow {
+  id: string;
+  repository: string;
+  tag: string;
+  size: string;
+  createdSince: string;
+}
+
+export interface DockerNetworkRow {
+  id: string;
+  name: string;
+  driver: string;
+  scope: string;
+}
+
+export interface DockerVolumeRow {
+  name: string;
+  driver: string;
+  mountpoint: string;
+}
+
+export interface DockerInventory {
+  capturedAt: string;
+  containers: DockerContainerRow[];
+  images: DockerImageRow[];
+  networks: DockerNetworkRow[];
+  volumes: DockerVolumeRow[];
+}
+
 export interface Lab {
   id: string;
   title: string;
