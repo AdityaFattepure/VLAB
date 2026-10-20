@@ -87,6 +87,43 @@ async function setAuth(cdp, sessionId, token, user) {
   );
 }
 
+function openTerminal(sessionId, token) {
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket(
+      `${BASE.replace(/^http/, 'ws')}/ws/terminal?sessionId=${sessionId}&token=${token}`,
+    );
+    const timer = setTimeout(() => reject(new Error('terminal WebSocket timed out')), 15000);
+    ws.addEventListener('message', (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === 'ready') {
+        clearTimeout(timer);
+        resolve(ws);
+      }
+      if (message.type === 'error') {
+        clearTimeout(timer);
+        reject(new Error(message.error));
+      }
+    });
+    ws.addEventListener('error', (event) => {
+      clearTimeout(timer);
+      reject(event.error ?? new Error('terminal WebSocket failed'));
+    });
+  });
+}
+
+async function waitForCommand(sessionId, token, command, knownCommands) {
+  for (let attempt = 0; attempt < 300; attempt++) {
+    const logs = await api(`/sessions/${sessionId}/commands?limit=200`, { token });
+    const fresh = logs.find((entry) => entry.command === command && !knownCommands.has(entry.id));
+    if (fresh) {
+      knownCommands.add(fresh.id);
+      return;
+    }
+    await sleep(500);
+  }
+  throw new Error(`command did not finish: ${command}`);
+}
+
 async function main() {
   mkdirSync(OUT, { recursive: true });
 
@@ -107,7 +144,7 @@ async function main() {
 
   const assignments = await api('/assignments/mine', { token: student.token });
   const assignment =
-    assignments.find((item) => item.lab.code === 'Lab 1') ??
+    assignments.find((item) => item.lab.code === 'Lab 4') ??
     assignments.find((item) => item.lab.template === 'docker-dind') ??
     assignments[0];
   if (!assignment) throw new Error('no seeded assignment found for student1');
@@ -131,6 +168,52 @@ async function main() {
   }
   if (!ready) throw new Error('session did not become ready in time');
   console.log('  container ready');
+
+  const appScript = `#!/bin/sh
+set -eu
+sum=$((A+B))
+printf '%s\\n' "$sum" > /usr/share/nginx/html/index.html
+exec nginx -g 'daemon off;'
+`;
+  const dockerfile = `FROM nginx:alpine
+COPY app.sh /usr/local/bin/app.sh
+RUN chmod +x /usr/local/bin/app.sh
+CMD ["/usr/local/bin/app.sh"]
+`;
+
+  await api(`/sessions/${session.id}/files/content`, {
+    method: 'PUT',
+    token: student.token,
+    body: { path: '/root/sum-service/app.sh', content: appScript },
+  });
+  await api(`/sessions/${session.id}/files/content`, {
+    method: 'PUT',
+    token: student.token,
+    body: { path: '/root/sum-service/Dockerfile', content: dockerfile },
+  });
+
+  const knownCommands = new Set(
+    (await api(`/sessions/${session.id}/commands?limit=200`, { token: student.token })).map(
+      (entry) => entry.id,
+    ),
+  );
+  const terminal = await openTerminal(session.id, student.token);
+  const commands = [
+    'docker build -t sum-service:v1 /root/sum-service',
+    'docker run -d --name sum-service -p 5000:80 -e A=12 -e B=30 sum-service:v1',
+    'curl -fsS http://localhost:5000 | tee /root/sum-result.txt',
+    'docker logs sum-service > /root/sum-service.log 2>&1',
+    'docker inspect --format "{{.State.Status}} {{.Config.Image}}" sum-service > /root/sum-inspect.txt',
+  ];
+  for (const command of commands) {
+    console.log(`  running: ${command}`);
+    terminal.send(
+      JSON.stringify({ type: 'input', data: Buffer.from(`${command}\n`).toString('base64') }),
+    );
+    await waitForCommand(session.id, student.token, command, knownCommands);
+  }
+  await api(`/sessions/${session.id}/check`, { method: 'POST', token: student.token });
+  await sleep(800);
 
   const edge = edgePath();
   if (!edge) throw new Error('Microsoft Edge not found');
@@ -209,6 +292,46 @@ async function main() {
     await sleep(2500);
     await screenshot(cdp, sessionId, 'teacher-student.png');
 
+    await cdp.send(
+      'Runtime.evaluate',
+      {
+        expression:
+          "[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Files · read-only')?.click()",
+      },
+      sessionId,
+    );
+    await sleep(2500);
+    await cdp.send(
+      'Runtime.evaluate',
+      {
+        expression:
+          "[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('sum-service'))?.click()",
+      },
+      sessionId,
+    );
+    await sleep(1200);
+    await cdp.send(
+      'Runtime.evaluate',
+      {
+        expression:
+          "[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('app.sh'))?.click()",
+      },
+      sessionId,
+    );
+    await sleep(1500);
+    await screenshot(cdp, sessionId, 'teacher-files.png');
+
+    await cdp.send(
+      'Runtime.evaluate',
+      {
+        expression:
+          "[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Docker')?.click()",
+      },
+      sessionId,
+    );
+    await sleep(2500);
+    await screenshot(cdp, sessionId, 'teacher-docker.png');
+
     await setAuth(cdp, sessionId, student.token, student.user);
     await goto(cdp, sessionId, '/student', 3500);
     await screenshot(cdp, sessionId, 'student-labs.png');
@@ -226,7 +349,48 @@ async function main() {
 
     await goto(cdp, sessionId, `/student/session/${session.id}`, 5000);
     await screenshot(cdp, sessionId, 'student-terminal.png');
+
+    await cdp.send(
+      'Runtime.evaluate',
+      {
+        expression:
+          "[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Code')?.click()",
+      },
+      sessionId,
+    );
+    await sleep(2500);
+    await cdp.send(
+      'Runtime.evaluate',
+      {
+        expression:
+          "[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('sum-service'))?.click()",
+      },
+      sessionId,
+    );
+    await sleep(1200);
+    await cdp.send(
+      'Runtime.evaluate',
+      {
+        expression:
+          "[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('app.sh'))?.click()",
+      },
+      sessionId,
+    );
+    await sleep(1800);
+    await screenshot(cdp, sessionId, 'student-editor.png');
+
+    await cdp.send(
+      'Runtime.evaluate',
+      {
+        expression:
+          "[...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Docker')?.click()",
+      },
+      sessionId,
+    );
+    await sleep(2500);
+    await screenshot(cdp, sessionId, 'student-docker.png');
   } finally {
+    terminal.close();
     browser.kill();
     await api(`/sessions/${session.id}`, { method: 'DELETE', token: student.token }).catch(() => {});
     // Edge may still hold files in the throwaway profile for a moment.

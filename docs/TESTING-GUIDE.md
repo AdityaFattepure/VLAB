@@ -18,9 +18,11 @@ can be signed in at once.
 | Host Docker daemon | `/var/run/docker.sock` | Only the backend can reach it |
 | Lab containers | `vlab-*` | One per student; `docker-dind` has its own inner daemon |
 | `registry:2` cache | `:5001` | Pull-through cache used by every inner daemon |
+| Code/Docker APIs | backend | File listing/read/write under `/root`; fixed read-only Docker inventory |
 
 Request path: browser → nginx → backend. Terminal path: xterm.js → WebSocket →
-backend → `docker exec` → the student's container.
+backend → `docker exec` → the student's container. Code and Docker paths use the
+same `docker exec` attach helper as the checker; neither runs a host command.
 
 Before testing:
 
@@ -151,6 +153,58 @@ UI.
 
 ---
 
+## 5a. Use the Code tab
+
+1. Click **Code** above the terminal. The right side becomes a file rail and a
+   CodeMirror editor; the terminal stays available on its own tab.
+2. Open `/root`, then **New file**. Use a path such as
+   `/root/notes/hello.txt` or `/root/hello-world/index.html`.
+3. Type in the editor, then **Save** (or `Ctrl/Cmd+S`).
+4. Edit the same file in the terminal with `cat /root/hello-world/index.html`
+   and confirm the saved text. The editor and terminal see the same filesystem.
+
+**What happens:** the rail calls `GET /api/sessions/:id/files?path=/root`, the
+editor calls `GET /api/sessions/:id/files/content?path=…`, and **Save** calls
+`PUT /api/sessions/:id/files/content`. The backend normalises the path, rejects
+anything outside `/root`, and passes it to a fixed `sh -c` script as a
+positional argument. Saves update `lastActivityAt` and append
+`[editor] saved <path>` to the command log; the terminal history itself is not
+rewritten.
+
+**Limits:** text only, 256 KiB per file, no NUL bytes. Oversized reads/writes
+return `413`; binary or NUL content returns `415`; a path outside `/root` returns
+`400`. Directories only appear if they exist; create them in the terminal with
+`mkdir -p`.
+
+**Teacher view:** the same panel is labelled **Files · read-only**. A teacher can
+list and open the student's files, but **Save** is hidden and a direct `PUT`
+returns `403`.
+
+---
+
+## 5b. Read the Docker inventory
+
+Click **Docker**. The panel shows four tables:
+
+- **Containers** — name, image, state, status, published ports, command.
+- **Images** — repository:tag, ID, size, age.
+- **Networks** — name, driver, scope.
+- **Volumes** — name, driver, mount point.
+
+The panel refreshes every five seconds. It is an inventory only: there are no
+start/stop/delete controls.
+
+**What happens:** `GET /api/sessions/:id/docker` runs four fixed commands inside
+the student's container: `docker ps -a`, `docker images`, `docker network ls`,
+and `docker volume ls`, all with `--format '{{json .}}'`. No query parameter
+reaches Docker. Each list is capped at 200 rows. If the inner daemon is down, the
+panel shows an error and a **Retry** button; the API returns `502`.
+
+After Lab 1, the Docker tab should list `hello-web` and `nginx:alpine`. Run
+`docker run` or `docker build` in the terminal and watch the tables change.
+
+---
+
 ## 6. Solve Lab 1
 
 Type these in the student terminal:
@@ -180,6 +234,59 @@ runs one long-lived `tail -F` exec per session, parses the lines, and inserts
 `CommandLog` rows, deduped on `(sessionId, ts, command)` so a backend restart can
 re-attach. This is **advisory**: `unset PROMPT_COMMAND` or `sh` bypasses it.
 Checks never read the log.
+
+---
+
+## 6a. Solve Lab 4 from the editor
+
+Lab 4 is the end-to-end test of the workspace: source files are created in the
+Code tab, then built and run in the terminal.
+
+1. From **My assignments**, open **Lab 4 — A microservice that sums two
+   numbers** and start it.
+2. In **Code**, create `/root/sum-service/app.sh`:
+
+   ```sh
+   #!/bin/sh
+   set -eu
+   sum=$((A+B))
+   printf '%s\n' "$sum" > /usr/share/nginx/html/index.html
+   exec nginx -g 'daemon off;'
+   ```
+
+3. Create `/root/sum-service/Dockerfile`:
+
+   ```dockerfile
+   FROM nginx:alpine
+   COPY app.sh /usr/local/bin/app.sh
+   RUN chmod +x /usr/local/bin/app.sh
+   CMD ["/usr/local/bin/app.sh"]
+   ```
+
+   Saving a nested path creates the parent directory.
+
+4. In the terminal:
+
+   ```bash
+   docker build -t sum-service:v1 /root/sum-service
+   docker run -d --name sum-service -p 5000:80 -e A=12 -e B=30 sum-service:v1
+   curl -fsS http://localhost:5000 | tee /root/sum-result.txt
+   docker logs sum-service > /root/sum-service.log 2>&1
+   docker inspect --format "{{.State.Status}} {{.Config.Image}}" sum-service > /root/sum-inspect.txt
+   ```
+
+   `curl` prints `42`. The arithmetic happens at **runtime**, because `A` and
+   `B` are environment variables supplied to `docker run`, not build arguments.
+
+5. Click **Check my work** — all four tasks pass. Open **Docker**: the
+   `sum-service` container, the `sum-service:v1` image, and `nginx:alpine` are
+   listed. The files `/root/sum-result.txt`, `/root/sum-service.log`, and
+   `/root/sum-inspect.txt` are visible in the Code tab if you need evidence.
+
+6. In the teacher tab, open the student and switch to **Files · read-only** to
+   read `app.sh` and `Dockerfile`, then **Docker** to see the same container.
+   Try to save as the teacher: the API returns `403`, and the UI has no Save
+   button in that mode.
 
 ---
 
@@ -232,12 +339,17 @@ Return to the class workspace without reloading. Within 4 seconds:
 - **Live activity** shows the last commands with timestamps.
 - Click the row: the drawer shows tasks, a **read-only** live terminal, and the
   full command history (up to 100 entries).
+- The drawer has three tabs: **Terminal**, **Files · read-only**, and
+  **Docker**. **Files** opens the student's `/root` tree and an editor without a
+  Save action. **Docker** shows the same read-only inventory the student sees.
 
 **What happens:** the grid is a projection of the database, not a Docker query.
 The drawer polls `GET /api/sessions/:id` (4 s) and
 `GET /api/sessions/:id/commands?limit=100` (5 s). The terminal in the drawer
 attaches to the same exec stream as the student's terminal, but with
-`readOnly`, so its keystrokes are never forwarded.
+`readOnly`, so its keystrokes are never forwarded. File and Docker requests use
+the same authorization check; teacher writes are rejected in the route with
+`403`, not merely hidden by the UI.
 
 If a student has not started the lab, the drawer says so and shows no terminal.
 
@@ -406,13 +518,15 @@ upload, protected download, review, and disallowed file types.
 
 `npm run smoke` prints one `PASS` per assertion and ends with `SMOKE OK`. It
 creates a real container, types the four Lab 1 commands through the terminal
-WebSocket, runs the checker, verifies the dashboard, then stops and removes the
-container.
+WebSocket, runs the checker, verifies the dashboard, exercises file save/read,
+the teacher read-only view, and the Docker inventory, then starts a second lab
+and builds **Lab 4** from files saved through the editor API. Both sessions and
+containers are stopped at the end.
 
 ```powershell
 powershell -File scripts\preflight.ps1     # demo readiness
 powershell -File scripts\reset-demo.ps1    # clean slate between runs
-node scripts\capture-screenshots.mjs       # refresh docs/screenshots
+node scripts\capture-screenshots.mjs       # refresh docs/screenshots (Lab 4 + editor/Docker)
 ```
 
 ---
@@ -429,6 +543,10 @@ node scripts\capture-screenshots.mjs       # refresh docs/screenshots
 | Teacher grid empty | wrong assignment selected / nobody joined | use the Assignment dropdown; check join code |
 | `EADDRINUSE :3000` | a native backend is still running | stop it, or use compose only |
 | Images pull slowly | registry cache unavailable | check `docker compose ps registry`; the daemon falls back to Docker Hub |
+| Code tab says `400 path is outside /root` | path contains `..`, a backslash, or is outside the workspace | use an absolute path such as `/root/notes/file.txt` |
+| Code tab says `413` / `415` | file over 256 KiB / binary or NUL content | use the terminal for binaries and large files |
+| Docker tab says `502` with Retry | inner daemon is down or still starting | wait for **Live**, then retry; if it persists, reset the lab |
+| Teacher cannot save a file | by design | read-only review; ask the student to edit or use the terminal |
 | Everything stopped after sleep | laptop suspended | start the labs again; task results are kept |
 
 ---

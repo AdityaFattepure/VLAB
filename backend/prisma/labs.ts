@@ -95,7 +95,7 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 1,
         title: 'Create the app directory and Dockerfile',
         description:
-          'Create /root/hello-world/Dockerfile that starts from nginx:alpine.\n\nExample:\nmkdir -p /root/hello-world\ncat > /root/hello-world/Dockerfile <<\'EOF\'\nFROM nginx:alpine\nCOPY index.html /usr/share/nginx/html/index.html\nEOF',
+          'Create /root/hello-world/Dockerfile that starts from nginx:alpine. Use the Code tab to create the file, or use the terminal example below.\n\nExample:\nmkdir -p /root/hello-world\ncat > /root/hello-world/Dockerfile <<\'EOF\'\nFROM nginx:alpine\nCOPY index.html /usr/share/nginx/html/index.html\nEOF',
         checkCommand: 'test -f /root/hello-world/Dockerfile',
         expectedOutputContains: null,
         expectedExitCode: 0,
@@ -104,7 +104,7 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 2,
         title: 'Create the Hello World page',
         description:
-          'Create /root/hello-world/index.html containing a visible Hello World heading.\n\nExample:\ncat > /root/hello-world/index.html <<\'EOF\'\n<h1>Hello World!</h1>\nEOF',
+          'Create /root/hello-world/index.html containing a visible Hello World heading. The Code tab is the quickest way to write the page; the terminal example is below.\n\nExample:\ncat > /root/hello-world/index.html <<\'EOF\'\n<h1>Hello World!</h1>\nEOF',
         checkCommand:
           "test -f /root/hello-world/index.html && grep -qi 'hello world' /root/hello-world/index.html",
         expectedOutputContains: null,
@@ -198,50 +198,49 @@ export const MANUAL_LABS: SeedLab[] = [
     code: 'Lab 4',
     title: 'A microservice that sums two numbers',
     description:
-      'Run a small HTTP service that reads two numbers and returns their sum.',
+      'Write a small service and Dockerfile, build your own image, and return the sum of two environment variables.',
     objective:
-      'Package a service in a container, pass configuration through environment variables, and call it over HTTP.',
+      'Use the Code tab to create source files, package a shell-based HTTP service in a Docker image, pass configuration through environment variables, and call it over HTTP.',
     co: 'CO2',
     estimatedMinutes: 60,
     template: DOCKER,
     tasks: [
       {
         order: 1,
-        title: 'Run the sum service on port 5000',
+        title: 'Create app.sh and Dockerfile',
         description:
-          'Start a service that returns 12 + 30. The easiest version uses nginx:alpine and the shell arithmetic in its command.\n\nExample:\ndocker run -d --name sum-service -p 5000:80 -e A=12 -e B=30 --entrypoint sh nginx:alpine -c \'echo $((A+B)) > /usr/share/nginx/html/index.html && exec nginx -g "daemon off;"\'',
+          'Use the Code tab to create both files in /root/sum-service. You can also use the terminal and nano.\n\napp.sh reads A and B, writes their sum to the nginx document root, then starts nginx:\n#!/bin/sh\nset -eu\nsum=$((A+B))\nprintf \'%s\\n\' "$sum" > /usr/share/nginx/html/index.html\nexec nginx -g \'daemon off;\'\n\nDockerfile packages the script on the cached nginx image:\nFROM nginx:alpine\nCOPY app.sh /usr/local/bin/app.sh\nRUN chmod +x /usr/local/bin/app.sh\nCMD ["/usr/local/bin/app.sh"]',
         checkCommand:
-          "docker ps --filter name=^/sum-service$ --filter status=running --format '{{.Names}}' | grep -qx sum-service && curl -fsS http://localhost:5000 | grep -qx 42",
+          "test -f /root/sum-service/app.sh && test -f /root/sum-service/Dockerfile && grep -q 'A+B' /root/sum-service/app.sh && grep -q '^FROM nginx:alpine' /root/sum-service/Dockerfile && grep -q 'COPY app.sh' /root/sum-service/Dockerfile",
         expectedOutputContains: null,
         expectedExitCode: 0,
       },
       {
         order: 2,
-        title: 'Save the response and the command you used',
+        title: 'Build the sum-service:v1 image',
         description:
-          'Record the service response and the docker run command for your submission.\n\nExample:\ncurl -fsS http://localhost:5000 > /root/sum-result.txt\necho "docker run ..." > /root/sum-service.txt',
-        checkCommand:
-          "test -s /root/sum-result.txt && grep -qx 42 /root/sum-result.txt && test -s /root/sum-service.txt && grep -q 'docker run' /root/sum-service.txt",
+          'Build the image from the Dockerfile and tag it sum-service:v1.\n\nExample: docker build -t sum-service:v1 /root/sum-service',
+        checkCommand: "docker images --format '{{.Repository}}:{{.Tag}}' | grep -qx 'sum-service:v1'",
         expectedOutputContains: null,
         expectedExitCode: 0,
       },
       {
         order: 3,
-        title: 'Save the service logs',
+        title: 'Run on port 5000 and save the response',
         description:
-          'Generate a request and write the container logs to /root/sum-service.log.\n\nExample:\ncurl -fsS http://localhost:5000 > /dev/null\ndocker logs sum-service > /root/sum-service.log 2>&1',
+          'Start your image with A=12 and B=30, then save the response to /root/sum-result.txt.\n\nExample:\ndocker run -d --name sum-service -p 5000:80 -e A=12 -e B=30 sum-service:v1\ncurl -fsS http://localhost:5000 | tee /root/sum-result.txt',
         checkCommand:
-          "test -s /root/sum-service.log && grep -q 'GET /' /root/sum-service.log",
+          "docker ps --filter name=^/sum-service$ --filter status=running --format '{{.Names}}' | grep -qx sum-service && docker inspect --format '{{.Config.Image}}' sum-service | grep -qx 'sum-service:v1' && curl -fsS http://localhost:5000 | grep -qx 42 && test -s /root/sum-result.txt && grep -qx 42 /root/sum-result.txt",
         expectedOutputContains: null,
         expectedExitCode: 0,
       },
       {
         order: 4,
-        title: 'Inspect the running service',
+        title: 'Save the logs and inspect the service',
         description:
-          'Write the status and image to /root/sum-inspect.txt.\n\nExample: docker inspect --format "{{.State.Status}} {{.Config.Image}}" sum-service > /root/sum-inspect.txt',
+          'Generate a request, save the container logs, and write the status and image to /root/sum-inspect.txt.\n\nExample:\ncurl -fsS http://localhost:5000 > /dev/null\ndocker logs sum-service > /root/sum-service.log 2>&1\ndocker inspect --format "{{.State.Status}} {{.Config.Image}}" sum-service > /root/sum-inspect.txt',
         checkCommand:
-          "test -s /root/sum-inspect.txt && grep -qx 'running nginx:alpine' /root/sum-inspect.txt",
+          "test -s /root/sum-service.log && grep -q 'GET /' /root/sum-service.log && test -s /root/sum-inspect.txt && grep -qx 'running sum-service:v1' /root/sum-inspect.txt",
         expectedOutputContains: null,
         expectedExitCode: 0,
       },
@@ -305,7 +304,7 @@ export const MANUAL_LABS: SeedLab[] = [
     code: 'Lab 6',
     title: 'Scale the service up and down',
     description:
-      'Run three replicas of the service, verify each one, then scale back to a single replica.',
+      'Run three replicas of the service, verify each one, then scale back to a single replica. This lab uses the Docker CLI; in a Compose project the same idea is `docker compose up -d --scale sum=3`.',
     objective:
       'Observe how running multiple container replicas changes capacity and how to scale down safely.',
     co: 'CO4',
@@ -418,7 +417,7 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 5,
         title: 'Write a short monitoring note',
         description:
-          'Create /root/monitor-notes.txt with at least three lines explaining which CPU, memory, and process signals you would watch, and why.',
+          'Create /root/monitor-notes.txt with at least three lines explaining which CPU, memory, and process signals you would watch, and why. You can write this note in the Code tab.',
         checkCommand:
           "test -f /root/monitor-notes.txt && [ \"$(wc -l < /root/monitor-notes.txt)\" -ge 3 ] && grep -qi cpu /root/monitor-notes.txt && grep -qi memory /root/monitor-notes.txt",
         expectedOutputContains: null,

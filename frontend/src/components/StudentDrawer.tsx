@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import type { CommandEntry, DashboardStudent, SessionDetail } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { usePolling } from '../hooks/usePolling';
@@ -6,6 +6,17 @@ import { cn, formatClock, initials, timeAgo } from '../lib/format';
 import { ProgressBar } from './ProgressBar';
 import { StatusPill, SubmissionBadge } from './StatusPill';
 import { TerminalView } from './TerminalView';
+
+const WorkspaceFiles = lazy(() => import('./WorkspaceFiles'));
+const DockerInspector = lazy(() => import('./DockerInspector'));
+
+type TeacherWorkspaceTab = 'terminal' | 'files' | 'docker';
+
+const teacherTabs: { id: TeacherWorkspaceTab; label: string }[] = [
+  { id: 'terminal', label: 'Terminal' },
+  { id: 'files', label: 'Files · read-only' },
+  { id: 'docker', label: 'Docker' },
+];
 
 export function StudentDrawer({
   student,
@@ -20,6 +31,11 @@ export function StudentDrawer({
   const sessionId = student.session?.id ?? null;
   const [busy, setBusy] = useState<'reset' | 'stop' | null>(null);
   const [notice, setNotice] = useState('');
+  const [workspaceTab, setWorkspaceTab] = useState<TeacherWorkspaceTab>('terminal');
+
+  useEffect(() => {
+    setWorkspaceTab('terminal');
+  }, [sessionId]);
 
   const { data: detail, refresh: refreshDetail } = usePolling<SessionDetail | null>(
     () => (sessionId ? api<SessionDetail>(`/sessions/${sessionId}`) : Promise.resolve(null)),
@@ -179,13 +195,64 @@ export function StudentDrawer({
 
               <section>
                 <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-slate-900">Live terminal</h3>
+                  <h3 className="text-sm font-semibold text-slate-900">Student workspace</h3>
                   <span className="text-[11px] text-slate-500">
-                    {ready ? 'read-only' : 'available when the lab is live'}
+                    {ready ? 'read-only · files and Docker objects' : 'available when the lab is live'}
                   </span>
                 </div>
                 {ready ? (
-                  <TerminalView sessionId={sessionId} readOnly className="h-80" />
+                  <div className="overflow-hidden rounded-lg border border-slate-200">
+                    <div
+                      role="tablist"
+                      aria-label="Student workspace"
+                      className="flex gap-1 border-b border-slate-200 bg-slate-50 px-2 pt-2"
+                    >
+                      {teacherTabs.map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={workspaceTab === tab.id}
+                          onClick={() => setWorkspaceTab(tab.id)}
+                          className={cn(
+                            'rounded-t border border-b-0 px-2.5 py-1.5 text-[11px] font-medium',
+                            workspaceTab === tab.id
+                              ? 'border-slate-200 bg-white text-slate-900'
+                              : 'border-transparent text-slate-500 hover:text-slate-800',
+                          )}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="h-[420px] min-h-0">
+                      {workspaceTab === 'terminal' && (
+                        <TerminalView bare readOnly sessionId={sessionId} className="h-full" />
+                      )}
+                      {workspaceTab === 'files' && (
+                        <Suspense
+                          fallback={
+                            <div className="grid h-full place-items-center text-xs text-slate-500">
+                              Loading files…
+                            </div>
+                          }
+                        >
+                          <WorkspaceFiles sessionId={sessionId} readOnly />
+                        </Suspense>
+                      )}
+                      {workspaceTab === 'docker' && (
+                        <Suspense
+                          fallback={
+                            <div className="grid h-full place-items-center text-xs text-slate-500">
+                              Loading Docker objects…
+                            </div>
+                          }
+                        >
+                          <DockerInspector sessionId={sessionId} />
+                        </Suspense>
+                      )}
+                    </div>
+                  </div>
                 ) : (
                   <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-8 text-center text-xs text-slate-500">
                     {detail?.errorMessage ?? 'The lab is not ready right now.'}

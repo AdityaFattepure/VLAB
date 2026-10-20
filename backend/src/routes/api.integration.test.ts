@@ -236,4 +236,65 @@ describe('teacher / class / assignment / submission flow', () => {
     expect(updated.body.room).toBe('Lab 301');
     expect(updated.body.joinCode).toBe(joinCode);
   });
+
+  it('protects session workspace routes and rejects unsafe file input', async () => {
+    const missing = await request(app)
+      .get('/api/sessions/not-a-session/files')
+      .set('authorization', `Bearer ${studentToken}`);
+    expect(missing.status).toBe(404);
+
+    const noToken = await request(app).get('/api/sessions/not-a-session/files');
+    expect(noToken.status).toBe(401);
+
+    const studentUser = await prisma.user.findUniqueOrThrow({ where: { email: student.email } });
+    const session = await prisma.session.create({
+      data: {
+        assignmentId,
+        studentId: studentUser.id,
+        status: 'ready',
+        containerId: 'fake-container',
+        containerName: 'fake-container',
+      },
+    });
+
+    const teacherWrite = await request(app)
+      .put(`/api/sessions/${session.id}/files/content`)
+      .set('authorization', `Bearer ${teacherToken}`)
+      .send({ path: '/root/a.txt', content: 'x' });
+    expect(teacherWrite.status).toBe(403);
+
+    const outsiderRead = await request(app)
+      .get(`/api/sessions/${session.id}/files`)
+      .set('authorization', `Bearer ${outsiderToken}`);
+    expect(outsiderRead.status).toBe(403);
+
+    const traversal = await request(app)
+      .put(`/api/sessions/${session.id}/files/content`)
+      .set('authorization', `Bearer ${studentToken}`)
+      .send({ path: '/root/../etc/passwd', content: 'nope' });
+    expect(traversal.status).toBe(400);
+
+    const outsideRead = await request(app)
+      .get(`/api/sessions/${session.id}/files?path=/etc/passwd`)
+      .set('authorization', `Bearer ${studentToken}`);
+    expect(outsideRead.status).toBe(400);
+
+    const rootWrite = await request(app)
+      .put(`/api/sessions/${session.id}/files/content`)
+      .set('authorization', `Bearer ${studentToken}`)
+      .send({ path: '/root', content: 'nope' });
+    expect(rootWrite.status).toBe(400);
+
+    const nulContent = await request(app)
+      .put(`/api/sessions/${session.id}/files/content`)
+      .set('authorization', `Bearer ${studentToken}`)
+      .send({ path: '/root/a.txt', content: 'a\u0000b' });
+    expect(nulContent.status).toBe(400);
+
+    const oversized = await request(app)
+      .put(`/api/sessions/${session.id}/files/content`)
+      .set('authorization', `Bearer ${studentToken}`)
+      .send({ path: '/root/a.txt', content: 'x'.repeat(262_145) });
+    expect(oversized.status).toBe(413);
+  });
 });

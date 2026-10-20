@@ -1,4 +1,5 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
+import { badRequest, conflict, forbidden } from '../lib/errors.js';
 import { param, reqString } from '../lib/validate.js';
 import { currentUser, requireAuth, requireRole } from '../middleware/auth.js';
 import { prisma } from '../prisma.js';
@@ -9,9 +10,28 @@ import {
   startOrReuseSession,
   stopSession,
 } from '../services/session.service.js';
+import {
+  listWorkspaceFiles,
+  readDockerInventory,
+  readWorkspaceFile,
+  writeWorkspaceFile,
+} from '../services/workspace.service.js';
 
 export const sessionsRouter = Router();
 sessionsRouter.use(requireAuth);
+
+async function loadReadySession(req: Request) {
+  const user = currentUser(req);
+  const session = await loadSessionForUser(param(req, 'id'), user);
+  if (session.status !== 'ready' || !session.containerId) {
+    conflict('The lab is not running');
+  }
+  return { user, session, containerId: session.containerId };
+}
+
+function queryString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined;
+}
 
 function serializeResults(
   tasks: { id: string }[],
@@ -36,6 +56,59 @@ sessionsRouter.post('/', requireRole('student'), async (req, res) => {
   const assignmentId = reqString(req.body?.assignmentId, 'Assignment');
   const session = await startOrReuseSession(user.id, assignmentId);
   res.status(202).json(session);
+});
+
+sessionsRouter.get('/:id/files', async (req, res) => {
+  const { session, containerId } = await loadReadySession(req);
+  const listing = await listWorkspaceFiles(containerId, queryString(req.query.path) ?? '/root');
+  res.json(listing);
+});
+
+sessionsRouter.get('/:id/files/content', async (req, res) => {
+  const { containerId } = await loadReadySession(req);
+  const filePath = queryString(req.query.path);
+  if (!filePath) {
+    badRequest('File path is required');
+  }
+  const file = await readWorkspaceFile(containerId, filePath);
+  res.json(file);
+});
+
+sessionsRouter.put('/:id/files/content', async (req, res) => {
+  const { user, session, containerId } = await loadReadySession(req);
+  if (user.role !== 'student') {
+    forbidden('Teachers have read-only access to student files');
+  }
+
+  const filePath = req.body?.path;
+  const content = req.body?.content;
+  if (typeof filePath !== 'string' || filePath.trim() === '') {
+    badRequest('File path is required');
+  }
+  if (typeof content !== 'string') {
+    badRequest('Content must be a string');
+  }
+
+  const saved = await writeWorkspaceFile(containerId, filePath, content);
+  await prisma.session.update({
+    where: { id: session.id },
+    data: { lastActivityAt: new Date() },
+  });
+  await prisma.commandLog.create({
+    data: {
+      sessionId: session.id,
+      ts: new Date(),
+      command: `[editor] saved ${saved.path}`.slice(0, 500),
+    },
+  });
+
+  res.json(saved);
+});
+
+sessionsRouter.get('/:id/docker', async (req, res) => {
+  const { containerId } = await loadReadySession(req);
+  const inventory = await readDockerInventory(containerId);
+  res.json(inventory);
 });
 
 sessionsRouter.get('/:id', async (req, res) => {

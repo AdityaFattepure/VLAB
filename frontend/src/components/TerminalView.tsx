@@ -24,10 +24,12 @@ type Connection = 'connecting' | 'connected' | 'closed' | 'error';
 export function TerminalView({
   sessionId,
   readOnly = false,
+  bare = false,
   className,
 }: {
   sessionId: string;
   readOnly?: boolean;
+  bare?: boolean;
   className?: string;
 }) {
   const { token } = useAuth();
@@ -151,7 +153,8 @@ export function TerminalView({
   return (
     <div
       className={cn(
-        'relative flex min-h-0 flex-col overflow-hidden rounded-xl border border-slate-800 bg-[#020617]',
+        'relative flex min-h-0 flex-col overflow-hidden bg-[#020617]',
+        bare ? 'border-0' : 'rounded-xl border border-slate-800',
         className,
       )}
     >
