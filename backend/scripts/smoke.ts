@@ -88,6 +88,29 @@ async function typeCommand(ws: WebSocket, command: string) {
   ws.send(JSON.stringify({ type: 'input', data: Buffer.from(`${command}\n`).toString('base64') }));
 }
 
+async function typeAndWaitForLog(
+  ws: WebSocket,
+  sessionId: string,
+  token: string,
+  command: string,
+  knownCommands: Set<string>,
+) {
+  await typeCommand(ws, command);
+  await poll(
+    async () => {
+      const logs = await api(`/api/sessions/${sessionId}/commands?limit=200`, { token });
+      const fresh = logs.find((l: any) => l.command === command && !knownCommands.has(l.id));
+      if (fresh) {
+        knownCommands.add(fresh.id);
+        return true;
+      }
+      return null;
+    },
+    150000,
+    `command to finish: ${command}`,
+  );
+}
+
 async function main() {
   console.log(`VLab smoke against ${BASE}\n`);
 
@@ -132,12 +155,12 @@ async function main() {
   // A session row is reused after a stop, and its command history is kept.
   // Ignore entries that were already there so this run waits for the shell to
   // execute the command we just typed instead of matching an older copy.
-  const knownCommands = new Set(
+  const knownCommands = new Set<string>(
     (
       await api(`/api/sessions/${session.id}/commands?limit=200`, {
         token: student.token,
       })
-    ).map((entry: any) => entry.id),
+    ).map((entry: any) => entry.id as string),
   );
 
   const solution = [
@@ -148,22 +171,7 @@ async function main() {
   ];
 
   for (const command of solution) {
-    await typeCommand(ws, command);
-    await poll(
-      async () => {
-        const logs = await api(`/api/sessions/${session.id}/commands?limit=50`, {
-          token: student.token,
-        });
-        const fresh = logs.find((l: any) => l.command === command && !knownCommands.has(l.id));
-        if (fresh) {
-          knownCommands.add(fresh.id);
-          return true;
-        }
-        return null;
-      },
-      90000,
-      `command to be logged: ${command}`,
-    );
+    await typeAndWaitForLog(ws, session.id, student.token, command, knownCommands);
   }
   check(true, 'all four commands ran and were logged');
   await sleep(2000);
@@ -233,6 +241,111 @@ async function main() {
     token: student.token,
   });
   check(stopped.status === 'stopped', 'session stopped and container removed');
+
+  const lab4 = assignments.find((entry: any) => entry.lab.code === 'Lab 4');
+  check(Boolean(lab4), 'seeded Lab 4 assignment is visible to the student');
+
+  if (lab4) {
+    const lab4Session = await api('/api/sessions', {
+      method: 'POST',
+      token: student.token,
+      body: { assignmentId: lab4.id },
+    });
+    const lab4Ready = await poll(
+      async () => {
+        const current = await api(`/api/sessions/${lab4Session.id}`, {
+          token: student.token,
+        });
+        if (current.status === 'error') throw new Error(current.errorMessage ?? 'session error');
+        return current.status === 'ready' ? current : null;
+      },
+      150000,
+      'the Lab 4 container to become ready',
+    );
+    check(lab4Ready.status === 'ready', 'Lab 4 DinD container ready');
+
+    const appScript = `#!/bin/sh
+set -eu
+sum=$((A+B))
+printf '%s\\n' "$sum" > /usr/share/nginx/html/index.html
+exec nginx -g 'daemon off;'
+`;
+    const dockerfile = `FROM nginx:alpine
+COPY app.sh /usr/local/bin/app.sh
+RUN chmod +x /usr/local/bin/app.sh
+CMD ["/usr/local/bin/app.sh"]
+`;
+
+    await api(`/api/sessions/${lab4Session.id}/files/content`, {
+      method: 'PUT',
+      token: student.token,
+      body: { path: '/root/sum-service/app.sh', content: appScript },
+    });
+    await api(`/api/sessions/${lab4Session.id}/files/content`, {
+      method: 'PUT',
+      token: student.token,
+      body: { path: '/root/sum-service/Dockerfile', content: dockerfile },
+    });
+    check(true, 'editor creates both Lab 4 source files');
+
+    const lab4KnownCommands = new Set<string>(
+      (
+        await api(`/api/sessions/${lab4Session.id}/commands?limit=200`, {
+          token: student.token,
+        })
+      ).map((entry: any) => entry.id as string),
+    );
+    const lab4Ws = await openTerminal(lab4Session.id, student.token);
+    const lab4Commands = [
+      'docker build -t sum-service:v1 /root/sum-service',
+      'docker run -d --name sum-service -p 5000:80 -e A=12 -e B=30 sum-service:v1',
+      'curl -fsS http://localhost:5000 | tee /root/sum-result.txt',
+      'docker logs sum-service > /root/sum-service.log 2>&1',
+      'docker inspect --format "{{.State.Status}} {{.Config.Image}}" sum-service > /root/sum-inspect.txt',
+    ];
+
+    for (const command of lab4Commands) {
+      await typeAndWaitForLog(
+        lab4Ws,
+        lab4Session.id,
+        student.token,
+        command,
+        lab4KnownCommands,
+      );
+    }
+    check(true, 'Lab 4 build, run, and evidence commands completed');
+
+    const lab4Checked = await api(`/api/sessions/${lab4Session.id}/check`, {
+      method: 'POST',
+      token: student.token,
+    });
+    check(
+      lab4Checked.results.every((result: any) => result.passed),
+      'Lab 4 source build passes all four checks',
+      lab4Checked.results.map((result: any) => (result.passed ? '1' : '0')).join(''),
+    );
+
+    const lab4Inventory = await api(`/api/sessions/${lab4Session.id}/docker`, {
+      token: teacher.token,
+    });
+    check(
+      lab4Inventory.containers.some((row: any) => row.name === 'sum-service'),
+      'Docker inventory shows the Lab 4 service container',
+    );
+    check(
+      lab4Inventory.images.some(
+        (row: any) => row.repository === 'sum-service' && row.tag === 'v1',
+      ),
+      'Docker inventory shows the built sum-service:v1 image',
+    );
+
+    lab4Ws.close();
+    const lab4Stopped = await api(`/api/sessions/${lab4Session.id}`, {
+      method: 'DELETE',
+      token: student.token,
+    });
+    check(lab4Stopped.status === 'stopped', 'Lab 4 session stopped and container removed');
+  }
 
   console.log(failures === 0 ? '\nSMOKE OK' : `\nSMOKE FAILED (${failures})`);
   process.exit(failures === 0 ? 0 : 1);
