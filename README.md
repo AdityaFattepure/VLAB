@@ -1,8 +1,8 @@
 # VLab — Container-Based Virtual Lab
 
-VLab is a web platform for the **Container Based Application Development Lab**. A teacher assigns a Docker or Linux lab to a class; every student gets an isolated container and a browser terminal; tasks are checked automatically; and the teacher watches the whole class from one dashboard.
+VLab is a teaching workspace for the **Container Based Application Development Lab**. A teacher runs several sections and batches, assigns the real handout experiments, and reviews evidence. Every student gets an isolated container and a browser terminal; tasks are checked automatically; and the teacher sees the whole class from one dashboard.
 
-Built for a live review demo: one command starts everything.
+Built for the classroom: one command starts everything.
 
 ```bash
 docker compose up --build
@@ -20,7 +20,7 @@ Open **http://localhost:5173**.
 - [Data model](#data-model)
 - [Session lifecycle](#session-lifecycle)
 - [Quick start](#quick-start)
-- [Demo script (review 2)](#demo-script-review-2)
+- [Teaching demo](#teaching-demo)
 - [How checks work](#how-checks-work)
 - [Security model](#security-model)
 - [Resource limits and cleanup](#resource-limits-and-cleanup)
@@ -40,6 +40,8 @@ Open **http://localhost:5173**.
 
 Seeded automatically on startup. The seed is idempotent, so restarting does not wipe work.
 
+Accounts live in the lab SQLite database. Signing in again with the same email and password reopens the same account, its classes, sessions, and submissions.
+
 | Role | Email | Password |
 | --- | --- | --- |
 | Teacher — Dr. Meera Krishnan | `teacher@vlab.dev` | `teacher123` |
@@ -48,12 +50,25 @@ Seeded automatically on startup. The seed is idempotent, so restarting does not 
 | Student — Rohan Mehta | `student3@vlab.dev` | `student123` |
 | Student — Ananya Iyer | `student4@vlab.dev` | `student123` |
 | Student — Kabir Singh | `student5@vlab.dev` | `student123` |
+| Student — Ishita Rao | `student6@vlab.dev` | `student123` |
+| Student — Dev Malhotra | `student7@vlab.dev` | `student123` |
+| Student — Sara Khan | `student8@vlab.dev` | `student123` |
+| Student — Nikhil Joshi | `student9@vlab.dev` | `student123` |
 
-Class: **CBADL — Batch A** · join code **`CBADL1`**
+The teacher teaches CBAD to two sections, each split into two batches:
 
-Students can also self-register from the login screen; registration always creates a `student`. They then join with the class code. The teacher dashboard shows their names as soon as they join.
+| Join code | Class | Schedule | Room | Seeded students |
+| --- | --- | --- | --- | --- |
+| `CBADL1` | CBAD · CC1 · Batch A | Monday · 10:00–12:00 | Lab 204 | 5 |
+| `CBADL2` | CBAD · CC1 · Batch B | Wednesday · 10:00–12:00 | Lab 204 | 2 |
+| `CBADL3` | CBAD · CC3 · Batch A | Tuesday · 10:00–12:00 | Lab 206 | 2 |
+| `CBADL4` | CBAD · CC3 · Batch B | Thursday · 10:00–12:00 | Lab 206 | 0 |
 
-> The JWT is stored in **`sessionStorage`**, which is per tab. That is deliberate: you can run the teacher in one tab and several students in other tabs of the same browser during the demo.
+The seed follows the seven experiments in the CBAD handout (`23CSE3118`). CBADL1 receives all seven; the other batches receive a smaller plan so switching classes is visibly different. The teacher can assign **Lab 3 to CC1 Batch A and Lab 2 to CC1 Batch B** from the lab library.
+
+Students can register from the login screen and join with a class code. The login screen also creates teacher accounts for this demo; a production deployment would gate that behind an administrator or invite.
+
+> The JWT is stored in **`sessionStorage`**, which is per tab. That is deliberate: you can run the teacher in one tab and several students in other tabs of the same browser during a demo.
 
 ---
 
@@ -61,22 +76,26 @@ Students can also self-register from the login screen; registration always creat
 
 ### Teacher
 
-- Create labs from two templates: `docker-dind` (privileged, nested Docker daemon) and `linux-basic` (Ubuntu).
-- Create tasks with a **check command**, expected exit code, and optional expected output.
-- Assign a lab to a class, with an optional due date.
+- See every class (course, section, batch, schedule, room, join code, live labs, evidence to review) on one overview and switch between them.
+- Create another section or batch; each gets its own join code, roster, and assignment plan.\n- Change a class's subject, section, batch, schedule, or room in place; the join code and roster stay the same.
+- Work from the seven handout labs plus two practice labs, with objectives, course outcomes, and estimated time.
+- Create or edit labs and checkable tasks; assign different labs to different batches of the same section.
+- Add submission instructions and choose whether evidence is required.
 - Monitor a student × task grid: names, live/stopped status, per-task pass marks, progress %, last activity, and last command.
 - Open a student: full command history and a **read-only live terminal**.
+- Review evidence: open the screenshot/PDF/Word/ZIP, leave feedback, and record a grade.
 - Reset one lab (fresh container, task results cleared, logs kept and a `[lab reset]` marker added).
 - Stop one lab or **stop all labs** in the class.
-- Join code is shown at the top of the dashboard.
 
 ### Student
 
-- Self-register and join a class by code.
-- See assigned labs, due dates, task instructions, and progress.
+- Self-register and join a class by code; assignments are grouped by class.
+- See the lab code, objective, course outcome, due date, task instructions, and progress.
 - Start a lab: the backend creates a container and waits until the inner Docker daemon answers (`starting → ready`), with a spinner in the UI.
 - Use a real browser terminal (xterm.js over WebSocket) backed by `docker exec` inside their own container.
 - "Check my work" on demand; the backend also checks every 30 seconds.
+- Submit evidence like a classroom: a screenshot, PDF, Word document, or ZIP plus a note.
+- See the teacher's feedback and grade, and resubmit if the work changes.
 - Reset or stop their own lab.
 
 ---
@@ -146,6 +165,8 @@ erDiagram
     SESSION ||--o{ TASKRESULT : records
     TASK ||--o{ TASKRESULT : checked_by
     SESSION ||--o{ COMMANDLOG : logs
+    USER ||--o{ SUBMISSION : submits
+    ASSIGNMENT ||--o{ SUBMISSION : collects
 
     USER {
         string id PK
@@ -159,11 +180,22 @@ erDiagram
         string name
         string joinCode
         string teacherId FK
+        string courseCode
+        string courseTitle
+        string courseShort
+        string section
+        string batch
+        string schedule
+        string room
     }
     LAB {
         string id PK
         string title
         string template
+        string code
+        string objective
+        string co
+        int estimatedMinutes
         string createdBy FK
     }
     TASK {
@@ -179,6 +211,8 @@ erDiagram
         string labId FK
         string classId FK
         datetime dueAt
+        string instructions
+        boolean requiresSubmission
     }
     SESSION {
         string id PK
@@ -203,9 +237,26 @@ erDiagram
         string command
         datetime ts
     }
+    SUBMISSION {
+        string id PK
+        string assignmentId FK
+        string studentId FK
+        string status
+        string note
+        string fileName
+        string fileType
+        int fileSize
+        string filePath
+        datetime submittedAt
+        datetime reviewedAt
+        string feedback
+        int grade
+    }
 ```
 
 `TaskResult.firstPassedAt` is the durable completion signal: once a task has passed it stays green even if the student later deletes the container. `passed` reflects the latest check.
+
+`Class` is a course + section + batch, so **CC1 Batch A** and **CC1 Batch B** are separate classes with separate rosters, join codes, and assignment plans. `Submission` is unique per `(assignment, student)`; a resubmission updates the same row and keeps the latest file on the uploads volume.
 
 ---
 
@@ -282,33 +333,35 @@ The smoke test and repeated demos leave sessions and passed tasks behind. Clear 
 powershell -ExecutionPolicy Bypass -File scripts/reset-demo.ps1
 ```
 
-It removes every container labeled `vlab.session`, then deletes sessions, task results, and command logs. Accounts, the class, labs, tasks, and assignments are kept. The seeded logins still work.
+It removes every container labeled `vlab.session`, then deletes sessions, task results, command logs, and evidence submissions (including uploaded files). Accounts, classes, labs, tasks, and assignments are kept. The seeded logins still work.
 
 ---
 
+## Teaching demo
 
-## Demo script (review 2)
+Aim for 8–10 minutes. Two browser tabs are enough; three students looks better.
 
-Aim for 6–8 minutes. Two browser tabs are enough; three students looks better.
-
-1. **Teacher tab** — sign in as `teacher@vlab.dev`. Show the class monitor: 5 seeded students, join code `CBADL1`, empty progress.
-2. **Student tab A** — sign in as `student1@vlab.dev` (or register a new student and join `CBADL1`). Open **Docker Basics** → **Start lab**. Point out the provisioning spinner: a real container is being created and the inner daemon is starting.
-3. When the terminal appears, run:
+1. **Teacher overview** — sign in as `teacher@vlab.dev`. Point out the four classes: CBAD · CC1 · Batch A/B and CBAD · CC3 · Batch A/B, each with its own schedule, room, join code, and count of live labs and evidence to review.
+2. **Switch class** — open **CBAD · CC1 · Batch A**. Show that the assignment dropdown contains the seven handout experiments. Switch to **CBAD · CC1 · Batch B** from the header; it has a different assignment plan.
+3. **Assign to a batch** — open **Lab library** → **Lab 3** → *Assign to a class* → `CBAD · CC1 · Batch B`. Explain that Batch A and Batch B are separate classes, so they can receive different labs.
+4. **Start a lab** — in a student tab, sign in as `student1@vlab.dev` (or register a student and join `CBADL1`). Open **Lab 1 — Docker installation and verification** → **Start lab**. Point out the provisioning spinner: a real container is being created and the inner daemon is starting.
+5. When the terminal appears, run:
    ```bash
-   docker ps
-   docker run -d --name web nginx:alpine
-   docker build -t myapp:v1 /root/app
-   docker volume create data
+   docker --version
+   docker info --format '{{.ServerVersion}}'
+   docker run -d --name hello-web -p 8080:80 nginx:alpine
+   curl -fsS http://localhost:8080
    ```
-4. **Prove isolation** on the host, in a separate terminal:
+6. **Prove isolation** on the host, in a separate terminal:
    ```bash
    docker ps --filter label=vlab.session --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'
    ```
-   The host sees one VLab sandbox per student, never the inner `web` container. Inside the student terminal, `docker ps` sees `web`, `myapp`, etc. Two different daemons.
-5. Click **Check my work** — all three tasks turn green immediately. (Or wait 30s for the automatic pass.)
-6. **Teacher tab** — the grid now shows Aarav Sharma, live status, 3/3, 100%, last command. The activity feed shows the typed commands. Click the row: command history and a **read-only live terminal** appear.
-7. Optional: **Reset lab** from the teacher panel, then **Stop all labs**. Show that the dashboard status changes and `docker ps` on the host is clean.
-8. **Live activity**: have a second student start a lab and type while the teacher watches. This is the "one dashboard for the whole class" moment.
+   The host sees one VLab sandbox per student, never the inner `hello-web` container. Inside the student terminal, `docker ps` sees `hello-web`. Two different daemons.
+7. Click **Check my work** — all four tasks turn green immediately. (Or wait 30s for the automatic pass.)
+8. **Submit evidence** — from **My assignments**, click **Submit evidence**, attach a screenshot or PDF, and add a note. Show the submitted badge.
+9. **Teacher tab** — the grid now shows Aarav Sharma, live status, 4/4, 100%, last command. The activity feed shows the typed commands. Click the row: command history and a **read-only live terminal**.
+10. **Review evidence** — open **Submitted evidence** in the class workspace, download the file, leave feedback, and set a grade. Switch back to the student: the same submission now shows the feedback and grade.
+11. Optional: **Reset lab** from the teacher panel, then **Stop all labs**. Show that the dashboard status changes and `docker ps` on the host is clean.
 
 Fallback if the room network is bad: images are pre-warmed by the lab image and the pull-through cache; the demo commands only use `nginx:alpine` and a local `Dockerfile`. You can also run the API smoke test to show the whole flow headlessly.
 
@@ -329,15 +382,16 @@ A task passes when:
 
 There is a 15-second server-side timeout as a backstop. Checks are serialized per session (one at a time), so the 30-second background loop and the student's button cannot interleave. The loop only checks tasks that have not passed yet; the button checks everything so the UI reflects the current state.
 
-Examples from the seed:
+Examples from the seeded handout labs:
 
 | Lab | Task | Check |
 | --- | --- | --- |
-| Docker Basics | Run a container named `web` | `docker ps --filter name=^/web$ --format '{{.Names}}'` contains `web` |
-| Docker Basics | Build an image tagged `myapp:v1` | `docker images … \| grep -qx 'myapp:v1'` |
-| Docker Basics | Create a volume named `data` | `docker volume ls -q \| grep -qx 'data'` |
-| Linux Basics | Create `/root/lab/hello.txt` containing `vlab` | `test -f … && grep -q vlab …` |
-| Linux Basics | Create user `analyst` | `id analyst` |
+| Lab 1 | Run a container named `hello-web` | `docker ps --filter name=^/hello-web$ --filter status=running …` |
+| Lab 1 | Verify nginx answers on port 8080 | `curl -fsS http://localhost:8080 \| grep -qi 'welcome to nginx'` |
+| Lab 2 | Build an image tagged `hello-world:v1` | `docker images … \| grep -qx 'hello-world:v1'` |
+| Lab 3 | Save and inspect the container logs | `test -s /root/web.log && grep -q 'GET /' /root/web.log` |
+| Lab 5 | Reach the service by name on `sum-net` | `docker exec sum-client cat /root/result.txt \| grep -qx 42` |
+| Practice | Create a volume named `data` | `docker volume ls -q \| grep -qx 'data'` |
 
 Checks inspect **state**, never the command history, so renaming a container or doing it a different way still passes.
 
@@ -349,8 +403,8 @@ What is enforced:
 
 - `docker.sock` is mounted **only** into the backend container. Lab containers never receive it.
 - Passwords are bcrypt-hashed; JWTs are signed with `JWT_SECRET` and expire (default 7 days).
-- `/api/auth/register` hardcodes `role = "student"`. Teachers are seeded.
-- Every session route checks ownership: students can only touch their own session; teachers only sessions in their own class.
+- `/api/auth/register` accepts `role: "student" | "teacher"` so the demo can create both account types; a production deployment would restrict teacher signup to an administrator or invite code.
+- Class, lab, task, session, and submission routes check ownership; students cannot read another student's evidence, and teachers only see classes they teach.
 - The terminal WebSocket authenticates and authorizes before upgrading; teacher input is dropped server-side.
 - Lab containers get memory, CPU, and PID limits. Idle sessions are stopped after 30 minutes.
 - The frontend never receives task `checkCommand` values for student accounts.
@@ -391,18 +445,21 @@ Capacity note: each DinD student reserves 1 GB. A 4 GB Docker Desktop VM comfort
 ├── .env.example
 ├── backend/
 │   ├── prisma/schema.prisma  # SQLite schema
+│   ├── prisma/labs.ts        # the seven handout experiments + practice labs
 │   ├── prisma/seed.ts        # idempotent demo data
+│   ├── prisma/reset-demo.ts  # clears sessions + submissions between rehearsals
 │   ├── scripts/smoke.ts      # end-to-end API + terminal + checker test
 │   ├── scripts/spike.ts      # low-level Docker/DinD/exec spike
+│   ├── uploads/              # local evidence files (ignored by git)
 │   └── src/
 │       ├── routes/           # auth, classes, labs, tasks, assignments, sessions
-│       ├── services/         # docker, sessions, checker, command log, dashboard
+│       ├── services/         # docker, sessions, checker, dashboard, submissions
 │       ├── ws/               # terminal WebSocket + shared exec attach manager
 │       ├── jobs/             # 30s checker, idle cleanup
 │       └── app.ts / index.ts
 ├── frontend/
-│   ├── src/pages/            # Login, TeacherDashboard, LabEditor, StudentLabs, SessionView
-│   ├── src/components/       # Header, TerminalView, StatusPill, ProgressBar, drawer
+│   ├── src/pages/            # Login, TeacherOverview, TeacherDashboard, LabEditor, StudentLabs, SessionView
+│   ├── src/components/       # Header, TerminalView, StatusPill, SubmissionModal, drawer
 │   └── nginx.conf            # SPA + /api + /ws proxy
 ├── lab-images/
 │   ├── docker-dind/          # docker:dind + bash + logging + warm pulls
@@ -411,7 +468,9 @@ Capacity note: each DinD student reserves 1 GB. A 4 GB Docker Desktop VM comfort
 │   ├── preflight.ps1         # demo-day Windows checks
 │   └── capture-screenshots.mjs
 └── docs/
-    ├── REVIEW2-OUTLINE.md    # slide-by-slide deck outline
+    ├── PRESENTATION-OUTLINE.md # suggested project presentation sequence
+    ├── TESTING-GUIDE.md      # click-by-click verification
+    ├── superpowers/specs/    # design note for the course workspace
     ├── adr/                  # architecture decisions
     └── screenshots/          # captured from a live run
 ```
@@ -454,12 +513,15 @@ The Docker client accepts either a unix socket path or a `npipe://…` URL, so t
 
 ## Verification
 
-Backend typecheck and frontend production build:
+Backend unit + API integration tests, backend typecheck, and frontend production build:
 
 ```bash
+cd backend && npm test
 cd backend && npm run typecheck
 cd frontend && npm run build
 ```
+
+The API integration test runs against a temporary SQLite file and covers teacher signup, class creation, joining by code, assignment, evidence upload, teacher review, file access control, and the rejection of disallowed file types.
 
 Docker/DinD spike (no app required):
 
@@ -467,7 +529,7 @@ Docker/DinD spike (no app required):
 cd backend && npm run spike
 ```
 
-End-to-end smoke test against a running stack. It logs in, starts a real DinD lab, types the three solution commands through the actual terminal WebSocket, runs the checker, and verifies the teacher dashboard:
+End-to-end smoke test against a running stack. It logs in, starts a real DinD lab, types the four Lab 1 commands through the actual terminal WebSocket, runs the checker, and verifies the teacher dashboard:
 
 ```bash
 cd backend && npm run smoke
@@ -497,20 +559,28 @@ All routes are under `/api`. `Authorization: Bearer <jwt>` unless noted.
 | Method | Path | Who | Purpose |
 | --- | --- | --- | --- |
 | POST | `/auth/login` | public | Sign in, returns token |
-| POST | `/auth/register` | public | Create student account |
+| POST | `/auth/register` | public | Create a student or teacher account |
 | GET | `/auth/me` | auth | Current user |
-| GET | `/classes` | auth | Teacher: own classes; student: joined classes |
-| POST | `/classes` | teacher | Create class (generates join code) |
+| GET | `/classes` | auth | Teacher: own classes with counts; student: joined classes |
+| POST | `/classes` | teacher | Create a section/batch class (generates join code) |
+| PATCH | `/classes/:id` | teacher | Change course, section, batch, schedule, room |
 | POST | `/classes/join` | student | Join by code |
-| GET | `/classes/:id/dashboard` | teacher | Student × task grid + activity |
+| GET | `/classes/:id` | teacher | Class details and roster |
+| GET | `/classes/:id/dashboard` | teacher | Student × task grid, assignments, evidence summary, activity |
+| GET | `/classes/:id/activity` | teacher | Recent class activity |
 | POST | `/classes/:id/stop-all` | teacher | Stop every running lab |
 | GET | `/labs` | teacher | Own labs with tasks |
 | POST | `/labs` | teacher | Create lab |
 | PUT/DELETE | `/labs/:id` | teacher | Edit / delete lab |
 | POST | `/labs/:id/tasks` | teacher | Add task |
 | PUT/DELETE | `/tasks/:id` | teacher | Edit / delete task |
-| POST | `/assignments` | teacher | Assign lab to class |
+| POST | `/assignments` | teacher | Assign lab to a class, with instructions + evidence flag |
+| DELETE | `/assignments/:id` | teacher | Remove an assignment and its sessions |
 | GET | `/assignments/mine` | student | Labs assigned to my classes |
+| GET | `/assignments/:id/submissions` | teacher | Roster + evidence for one assignment |
+| PUT | `/assignments/:id/submission` | student | Upload/replace evidence and note |
+| POST | `/assignments/:id/submission/review` | teacher | Feedback and grade |
+| GET | `/assignments/submissions/:id/file` | owner/teacher | Authenticated evidence download |
 | POST | `/sessions` | student | Start (or reuse) my lab |
 | GET | `/sessions/:id` | owner/teacher | Session, tasks, results |
 | DELETE | `/sessions/:id` | owner/teacher | Stop and remove container |
@@ -578,8 +648,9 @@ This project was demonstrated locally; no AWS resources are deployed.
 - Command logging is advisory (see above).
 - DinD containers start in 5–15 seconds; the UI handles it, but it is not instant.
 - Images inside a student's inner daemon are lost when the container is stopped. The pull-through cache makes re-pulls fast.
-- No file upload, no grading export, no password reset, no email verification.
-- Screenshots in the report must be captured from the running app (placeholders below).
+- Evidence files are stored on the `vlab-data` volume, not object storage; there is no virus scan, gradebook export, password reset, or email verification.
+- The seeded due dates are relative to seed time, so they move each time the stack starts.
+- Screenshots in the report must be captured from the running app.
 
 ---
 
@@ -594,10 +665,13 @@ node scripts/capture-screenshots.mjs
 
 | File | What it shows |
 | --- | --- |
-| `docs/screenshots/login.png` | Login screen with the demo-account shortcuts |
-| `docs/screenshots/teacher-live.png` | Student × task grid, live container, activity feed |
-| `docs/screenshots/teacher-drawer.png` | Read-only terminal + command history for one student |
-| `docs/screenshots/student-labs.png` | Student lab list with per-task progress |
+| `docs/screenshots/login.png` | Login screen with the demo-account shortcuts and account note |
+| `docs/screenshots/teacher-overview.png` | Four sections/batches, live counts, and evidence to review |
+| `docs/screenshots/teacher-class.png` | Class workspace with assignment switcher and student × task grid |
+| `docs/screenshots/teacher-evidence.png` | Submitted evidence with file, feedback, and grade controls |
+| `docs/screenshots/teacher-student.png` | Student drawer with tasks, read-only terminal, and command history |
+| `docs/screenshots/student-labs.png` | Grouped handout labs with progress and evidence actions |
+| `docs/screenshots/student-submission.png` | Evidence modal with an existing review and resubmission |
 | `docs/screenshots/student-terminal.png` | Terminal, task checklist, and progress in one view |
 
 Two are worth capturing by hand because they are timing- or host-specific:

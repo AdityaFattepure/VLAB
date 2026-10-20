@@ -1,6 +1,6 @@
-# Review 2 deck outline
+# Project presentation outline
 
-A suggested slide sequence for the CBADL mini-project review. Keep it to ~10 slides plus the live demo.
+A suggested sequence for the CBADL mini-project presentation. Keep it to ~10 slides plus the live demo.
 
 ## 1. Problem
 
@@ -42,10 +42,11 @@ Use the ER diagram from `README.md`. Point out:
 
 ## 5. Modules
 
-- `auth` — login, student self-registration, JWT, role checks.
-- `classes` — class creation, join codes, roster, dashboard aggregation.
-- `labs` / `tasks` — lab templates and check definitions.
-- `assignments` — lab ↔ class, due dates.
+- `auth` — login, teacher/student registration, JWT, role checks.
+- `classes` — course · section · batch classes, join codes, rosters, class switching, dashboard aggregation.
+- `labs` / `tasks` — the seven handout experiments, lab metadata, and check definitions.
+- `assignments` — lab ↔ class plans, due dates, submission instructions.
+- `submissions` — evidence uploads, feedback, grades, protected downloads.
 - `sessions` — container provisioning, readiness, stop/reset, idle cleanup.
 - `checker` — 15s per-check timeout, serialized per session, 30s loop + manual button.
 - `terminal` — shared hijacked exec, read-only teacher attach, scrollback.
@@ -54,12 +55,14 @@ Use the ER diagram from `README.md`. Point out:
 
 ## 6. Demo
 
-Follow `README.md` → Demo script. The strongest 30 seconds:
+Follow `README.md` → Teaching demo. The strongest 30 seconds:
 
+- Teacher overview shows CC1/CC3, batches A/B, and evidence to review.
 - Host: `docker ps --filter name=vlab-` → only VLab containers.
-- Student terminal: `docker ps` → `web`, etc.
-- Teacher dashboard: the same student's name, task ticks, last command.
+- Student terminal: `docker ps` → `hello-web`.
+- Teacher class workspace: the same student's name, task ticks, last command.
 - Teacher drawer: read-only live terminal.
+- Teacher reviews a screenshot and the student sees the grade.
 
 ## 7. Security and trade-offs
 
@@ -76,7 +79,7 @@ Follow `README.md` → Demo script. The strongest 30 seconds:
 - **EC2**: DinD needs ~1 GB per student; a t3.medium (4 GB) runs one or two students plus overhead. A class needs autoscaling lab hosts.
 - **ECR**: backend, frontend, and both lab images.
 - **S3**: report assets, result exports, screenshots.
-- **Why not deployed for review 2**: a single privileged DinD host is not a safe public multi-tenant service; the demo runs locally with resource limits.
+- **Why not deployed publicly**: a single privileged DinD host is not a safe public multi-tenant service; the demo runs locally with resource limits.
 - Multi-instance backends would need a shared terminal broker; the MVP is deliberately a single instance.
 
 ## 9. Metrics the dashboard exposes
@@ -85,22 +88,24 @@ Follow `README.md` → Demo script. The strongest 30 seconds:
 - Progress % per student.
 - Last active and last command.
 - Live container count.
+- Evidence submitted / reviewed per class.
 - Reset count (visible in the student drawer).
 
 ## 10. Limitations and next steps
 
 - Single backend instance; SQLite for demo reliability; PostgreSQL switch documented.
-- No file upload, grading export, password reset, or email verification.
+- Evidence is stored on a local volume; no gradebook export, password reset, or email verification yet.
 - Terminal token in query params (needs TLS in production).
-- Next: microVM runtime, per-task hints, export to CSV, LTI integration, autoscaling lab hosts.
+- Next: microVM runtime, per-task hints, CSV export, LTI integration, autoscaling lab hosts.
 
-## Demo checklist (before the review)
+## Demo checklist (before presenting)
 
 - [ ] `docker compose up --build -d` succeeds
 - [ ] `powershell -File scripts/preflight.ps1` is green
-- [ ] Teacher dashboard loads with 5 seeded students
+- [ ] Teacher overview loads with four section/batch classes
 - [ ] Two student tabs start labs and show terminals
-- [ ] Three task checks pass
+- [ ] Four Lab 1 checks pass
 - [ ] Teacher drawer shows the read-only terminal
+- [ ] Evidence upload and teacher review work end to end
 - [ ] `docker compose exec backend npm run smoke` prints `SMOKE OK`
 - [ ] Screenshots captured into `docs/screenshots/`

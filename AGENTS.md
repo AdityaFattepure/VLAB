@@ -116,7 +116,7 @@ inside compose it is `/var/run/docker.sock`.
 - `backend/prisma` — `schema.prisma`, `seed.ts`, `reset-demo.ts`
 - `frontend/src/{pages,components,hooks,lib,auth,api}`
 - `lab-images/{docker-dind,linux-basic}` — the lab container images
-- `docs/` — ADRs, review-2 outline, captured screenshots
+- `docs/` — ADRs, presentation outline, testing guide, captured screenshots
 
 ### Tests
 

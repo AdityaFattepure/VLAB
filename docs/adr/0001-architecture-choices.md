@@ -1,13 +1,13 @@
 # ADR 0001 — Per-student privileged DinD, SQLite, and a single backend
 
 Date: 2026-10-19
-Status: Accepted for the review-2 MVP
+Status: Accepted
 
 ## Context
 
 VLab must let students run real `docker` commands in a browser, while a teacher
-monitors a whole class. The review is two days away, so demo reliability and a
-strong live demonstration outweigh production hardening.
+monitors a whole class. Demo reliability and a strong live demonstration
+outweigh production hardening.
 
 The subject is Container Based Application Development Lab, so the lab runtime
 must be Docker itself, not a simulated shell.
