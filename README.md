@@ -1,6 +1,6 @@
 # VLab — Container-Based Virtual Lab
 
-VLab is a teaching workspace for the **Container Based Application Development Lab**. A teacher runs several sections and batches, assigns the real handout experiments, and reviews evidence. Every student gets an isolated container and a browser terminal; tasks are checked automatically; and the teacher sees the whole class from one dashboard.
+VLab is a teaching workspace for the **Container Based Application Development Lab**. A teacher runs several sections and batches, assigns the real handout experiments, and reviews evidence. Every student gets an isolated container, a browser terminal, a small code editor, and a read-only Docker inventory; tasks are checked automatically; and the teacher sees the whole class from one dashboard.
 
 Built for the classroom: one command starts everything.
 
@@ -19,6 +19,7 @@ Open **http://localhost:5173**.
 - [Architecture](#architecture)
 - [Data model](#data-model)
 - [Session lifecycle](#session-lifecycle)
+- [Browser workspace](#browser-workspace)
 - [Quick start](#quick-start)
 - [Teaching demo](#teaching-demo)
 - [How checks work](#how-checks-work)
@@ -77,12 +78,13 @@ Students can register from the login screen and join with a class code. The logi
 ### Teacher
 
 - See every class (course, section, batch, schedule, room, join code, live labs, evidence to review) on one overview and switch between them.
-- Create another section or batch; each gets its own join code, roster, and assignment plan.\n- Change a class's subject, section, batch, schedule, or room in place; the join code and roster stay the same.
+- Create another section or batch; each gets its own join code, roster, and assignment plan.
+- Change a class's subject, section, batch, schedule, or room in place; the join code and roster stay the same.
 - Work from the seven handout labs plus two practice labs, with objectives, course outcomes, and estimated time.
 - Create or edit labs and checkable tasks; assign different labs to different batches of the same section.
 - Add submission instructions and choose whether evidence is required.
 - Monitor a student × task grid: names, live/stopped status, per-task pass marks, progress %, last activity, and last command.
-- Open a student: full command history and a **read-only live terminal**.
+- Open a student: full command history, a **read-only live terminal**, a read-only file view, and a Docker inventory.
 - Review evidence: open the screenshot/PDF/Word/ZIP, leave feedback, and record a grade.
 - Reset one lab (fresh container, task results cleared, logs kept and a `[lab reset]` marker added).
 - Stop one lab or **stop all labs** in the class.
@@ -93,6 +95,8 @@ Students can register from the login screen and join with a class code. The logi
 - See the lab code, objective, course outcome, due date, task instructions, and progress.
 - Start a lab: the backend creates a container and waits until the inner Docker daemon answers (`starting → ready`), with a spinner in the UI.
 - Use a real browser terminal (xterm.js over WebSocket) backed by `docker exec` inside their own container.
+- Browse and edit text files under `/root` in a CodeMirror editor, without switching to `nano`.
+- Inspect the containers, images, networks, and volumes in their inner Docker daemon from a read-only Docker tab.
 - "Check my work" on demand; the backend also checks every 30 seconds.
 - Submit evidence like a classroom: a screenshot, PDF, Word document, or ZIP plus a note.
 - See the teacher's feedback and grade, and resubmit if the work changes.
@@ -106,7 +110,7 @@ Students can register from the login screen and join with a class code. The logi
 flowchart LR
     subgraph Browser
         T[Teacher dashboard<br/>polling every 4s]
-        S[Student lab<br/>xterm.js]
+        S[Student lab<br/>terminal · code · docker]
     end
 
     T -->|REST /api| N[nginx :5173]
@@ -140,6 +144,27 @@ This is why `docker-dind` containers are started `--privileged`: the inner `dock
 3. One hijacked `docker exec … bash --rcfile /etc/vlab/bashrc -i` is kept per session and shared by every attached client.
 4. Student input and resize are forwarded; teacher input and resize are dropped **on the server**, not just hidden in the UI.
 5. A late joiner receives a 64 KB scrollback of recent output.
+
+### Browser workspace
+
+The live-lab surface has three tabs:
+
+| Tab | Student | Teacher |
+| --- | --- | --- |
+| **Terminal** | Full interactive shell | Read-only attach to the same shell |
+| **Code** | List, open, create, and save text files under `/root` | **Files · read-only** view of the same tree |
+| **Docker** | Read-only containers, images, networks, volumes | Read-only inventory of the student's inner daemon |
+
+The Code tab uses CodeMirror 6 with syntax highlighting for HTML, JavaScript,
+TypeScript, JSON, Python, YAML, shell, and Dockerfile. Saves are explicit and
+support `Ctrl/Cmd+S`; the editor warns before discarding unsaved changes. The
+backend enforces a `/root` allowlist, a 256 KiB limit, and UTF-8 text only, and
+teachers cannot write through the API.
+
+The Docker tab is an inventory, not a control panel. It runs four fixed,
+read-only `docker … ls/ps` commands inside the student's container and refreshes
+every five seconds. No request value is passed to Docker, and the host socket
+stays outside the lab container.
 
 ### Command logging
 
@@ -357,9 +382,9 @@ Aim for 8–10 minutes. Two browser tabs are enough; three students looks better
    docker ps --filter label=vlab.session --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'
    ```
    The host sees one VLab sandbox per student, never the inner `hello-web` container. Inside the student terminal, `docker ps` sees `hello-web`. Two different daemons.
-7. Click **Check my work** — all four tasks turn green immediately. (Or wait 30s for the automatic pass.)
+7. Click **Check my work** — all four tasks turn green immediately. (Or wait 30s for the automatic pass.) Open the **Code** tab, create `/root/demo-note.txt`, and save it. Then open the **Docker** tab: `hello-web` and the `nginx:alpine` image are visible without typing `docker ps` or `docker images`.
 8. **Submit evidence** — from **My assignments**, click **Submit evidence**, attach a screenshot or PDF, and add a note. Show the submitted badge.
-9. **Teacher tab** — the grid now shows Aarav Sharma, live status, 4/4, 100%, last command. The activity feed shows the typed commands. Click the row: command history and a **read-only live terminal**.
+9. **Teacher tab** — the grid now shows Aarav Sharma, live status, 4/4, 100%, last command. The activity feed shows the typed commands and the `[editor] saved` marker. Click the row: command history, a **read-only live terminal**, the student's files, and the Docker inventory.
 10. **Review evidence** — open **Submitted evidence** in the class workspace, download the file, leave feedback, and set a grade. Switch back to the student: the same submission now shows the feedback and grade.
 11. Optional: **Reset lab** from the teacher panel, then **Stop all labs**. Show that the dashboard status changes and `docker ps` on the host is clean.
 
@@ -390,6 +415,7 @@ Examples from the seeded handout labs:
 | Lab 1 | Verify nginx answers on port 8080 | `curl -fsS http://localhost:8080 \| grep -qi 'welcome to nginx'` |
 | Lab 2 | Build an image tagged `hello-world:v1` | `docker images … \| grep -qx 'hello-world:v1'` |
 | Lab 3 | Save and inspect the container logs | `test -s /root/web.log && grep -q 'GET /' /root/web.log` |
+| Lab 4 | Build `sum-service:v1` from `app.sh` + `Dockerfile` | `docker images … \| grep -qx 'sum-service:v1'` |
 | Lab 5 | Reach the service by name on `sum-net` | `docker exec sum-client cat /root/result.txt \| grep -qx 42` |
 | Practice | Create a volume named `data` | `docker volume ls -q \| grep -qx 'data'` |
 
@@ -405,6 +431,9 @@ What is enforced:
 - Passwords are bcrypt-hashed; JWTs are signed with `JWT_SECRET` and expire (default 7 days).
 - `/api/auth/register` accepts `role: "student" | "teacher"` so the demo can create both account types; a production deployment would restrict teacher signup to an administrator or invite code.
 - Class, lab, task, session, and submission routes check ownership; students cannot read another student's evidence, and teachers only see classes they teach.
+- The file API normalises paths and refuses anything outside `/root`; paths are passed to `sh -c` as positional arguments, never interpolated. Students can write; teachers are read-only.
+- File reads reject binary content and files over 256 KiB; writes reject NUL bytes and oversized bodies before touching the container.
+- The Docker inventory endpoint can only run the four fixed read-only commands listed above.
 - The terminal WebSocket authenticates and authorizes before upgrading; teacher input is dropped server-side.
 - Lab containers get memory, CPU, and PID limits. Idle sessions are stopped after 30 minutes.
 - The frontend never receives task `checkCommand` values for student accounts.
@@ -453,13 +482,13 @@ Capacity note: each DinD student reserves 1 GB. A 4 GB Docker Desktop VM comfort
 │   ├── uploads/              # local evidence files (ignored by git)
 │   └── src/
 │       ├── routes/           # auth, classes, labs, tasks, assignments, sessions
-│       ├── services/         # docker, sessions, checker, dashboard, submissions
+│       ├── services/         # docker, sessions, checker, dashboard, submissions, workspace
 │       ├── ws/               # terminal WebSocket + shared exec attach manager
 │       ├── jobs/             # 30s checker, idle cleanup
 │       └── app.ts / index.ts
 ├── frontend/
 │   ├── src/pages/            # Login, TeacherOverview, TeacherDashboard, LabEditor, StudentLabs, SessionView
-│   ├── src/components/       # Header, TerminalView, StatusPill, SubmissionModal, drawer
+│   ├── src/components/       # Header, TerminalView, CodeEditor, WorkspaceFiles, DockerInspector, drawer
 │   └── nginx.conf            # SPA + /api + /ws proxy
 ├── lab-images/
 │   ├── docker-dind/          # docker:dind + bash + logging + warm pulls
@@ -470,7 +499,7 @@ Capacity note: each DinD student reserves 1 GB. A 4 GB Docker Desktop VM comfort
 └── docs/
     ├── PRESENTATION-OUTLINE.md # suggested project presentation sequence
     ├── TESTING-GUIDE.md      # click-by-click verification
-    ├── superpowers/specs/    # design note for the course workspace
+    ├── superpowers/          # design specs and implementation plans
     ├── adr/                  # architecture decisions
     └── screenshots/          # captured from a live run
 ```
@@ -529,7 +558,7 @@ Docker/DinD spike (no app required):
 cd backend && npm run spike
 ```
 
-End-to-end smoke test against a running stack. It logs in, starts a real DinD lab, types the four Lab 1 commands through the actual terminal WebSocket, runs the checker, and verifies the teacher dashboard:
+End-to-end smoke test against a running stack. It logs in, starts a real DinD lab, types the four Lab 1 commands through the actual terminal WebSocket, runs the checker, verifies the editor file API and Docker inventory, then creates and builds Lab 4 from files saved through the same API. It also verifies the teacher dashboard:
 
 ```bash
 cd backend && npm run smoke
@@ -587,6 +616,10 @@ All routes are under `/api`. `Authorization: Bearer <jwt>` unless noted.
 | POST | `/sessions/:id/check` | owner/teacher | Run all checks now |
 | POST | `/sessions/:id/reset` | owner/teacher | Fresh container, clear results |
 | GET | `/sessions/:id/commands` | owner/teacher | Command history |
+| GET | `/sessions/:id/files?path=/root` | owner/teacher | List a directory under `/root` |
+| GET | `/sessions/:id/files/content?path=…` | owner/teacher | Read a UTF-8 file under `/root` |
+| PUT | `/sessions/:id/files/content` | student owner | Create/overwrite a text file (256 KiB) |
+| GET | `/sessions/:id/docker` | owner/teacher | Read-only containers, images, networks, volumes |
 | GET | `/health` | public | API + Docker reachability |
 | WS | `/ws/terminal?sessionId=&token=` | owner/teacher | Terminal stream |
 
@@ -648,6 +681,9 @@ This project was demonstrated locally; no AWS resources are deployed.
 - Command logging is advisory (see above).
 - DinD containers start in 5–15 seconds; the UI handles it, but it is not instant.
 - Images inside a student's inner daemon are lost when the container is stopped. The pull-through cache makes re-pulls fast.
+- The Code tab edits UTF-8 text files up to 256 KiB; binary files, deletion, and multi-file tabs are terminal jobs. Teachers cannot write files from the review drawer.
+- The Docker tab is a read-only inventory. It deliberately does not expose Docker Desktop's GUI or start/stop/delete controls.
+- Lab 6 uses Docker CLI replicas and documents the equivalent `docker compose up -d --scale` command; Compose is not a hard lab dependency.
 - Evidence files are stored on the `vlab-data` volume, not object storage; there is no virus scan, gradebook export, password reset, or email verification.
 - The seeded due dates are relative to seed time, so they move each time the stack starts.
 - Screenshots in the report must be captured from the running app.
@@ -656,8 +692,10 @@ This project was demonstrated locally; no AWS resources are deployed.
 
 ## Screenshots
 
-Captured from a live run into `docs/screenshots/`. Regenerate them with headless
-Edge against a running stack:
+Captured from a live run into `docs/screenshots/`. The script starts Lab 4,
+writes `app.sh` and `Dockerfile` through the editor API, builds the image, and
+captures the terminal, Code, and Docker tabs. Regenerate them with headless Edge
+against a running stack:
 
 ```bash
 node scripts/capture-screenshots.mjs
@@ -670,9 +708,13 @@ node scripts/capture-screenshots.mjs
 | `docs/screenshots/teacher-class.png` | Class workspace with assignment switcher and student × task grid |
 | `docs/screenshots/teacher-evidence.png` | Submitted evidence with file, feedback, and grade controls |
 | `docs/screenshots/teacher-student.png` | Student drawer with tasks, read-only terminal, and command history |
+| `docs/screenshots/teacher-files.png` | Teacher reading a student's Lab 4 files in read-only mode |
+| `docs/screenshots/teacher-docker.png` | Teacher inspecting the student's containers and images |
 | `docs/screenshots/student-labs.png` | Grouped handout labs with progress and evidence actions |
 | `docs/screenshots/student-submission.png` | Evidence modal with an existing review and resubmission |
 | `docs/screenshots/student-terminal.png` | Terminal, task checklist, and progress in one view |
+| `docs/screenshots/student-editor.png` | Code tab with the Lab 4 `app.sh` and file rail |
+| `docs/screenshots/student-docker.png` | Docker tab showing the running `sum-service` container |
 
 Two are worth capturing by hand because they are timing- or host-specific:
 
@@ -687,5 +729,5 @@ Two are worth capturing by hand because they are timing- or host-specific:
 ## Stack
 
 - **Backend**: Node 22, Express 5, TypeScript, Prisma 6, SQLite, `dockerode`, `ws`, `jsonwebtoken`, `bcryptjs`
-- **Frontend**: React 19, Vite 8, Tailwind CSS 4, React Router 7, xterm.js
+- **Frontend**: React 19, Vite 8, Tailwind CSS 4, React Router 7, xterm.js, CodeMirror 6
 - **Runtime**: Docker Compose v2, nginx, `docker:dind`, `registry:2` pull-through cache

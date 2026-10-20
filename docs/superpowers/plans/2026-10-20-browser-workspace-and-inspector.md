@@ -1,6 +1,6 @@
 # Browser Workspace and Docker Inspector Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add a browser file editor and a read-only Docker inventory to every live VLab session, and upgrade Lab 4 to a real Dockerfile-based build that uses the editor.
 
@@ -74,7 +74,7 @@
   - `parseJsonLines<T = Record<string, unknown>>(stdout: string): T[]`
   - `isBinaryText(content: string): boolean`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -137,21 +137,21 @@ describe('workspace.logic', () => {
 });
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `npm test -- workspace.logic.test.ts` in `backend/`
 Expected: FAIL because `workspace.logic.ts` does not exist.
 
-- [ ] **Step 3: Implement `workspace.logic.ts`**
+- [x] **Step 3: Implement `workspace.logic.ts`**
 
 Use `path.posix.normalize`. A path is valid only when it equals `/root` or starts with `/root/`; reject NUL, backslashes, and paths longer than 512 characters. Parsing functions must never throw for a malformed stat line; they drop it. `parseFileStatLines` treats `directory` as `directory` and every other stat type as `file`. Sort directories first, then files, both by lowercased name.
 
-- [ ] **Step 4: Run the test to verify it passes**
+- [x] **Step 4: Run the test to verify it passes**
 
 Run: `npm test -- workspace.logic.test.ts` in `backend/`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/lib/workspace.logic.ts backend/src/lib/workspace.logic.test.ts
@@ -175,7 +175,7 @@ git commit -m "feat: add workspace path and parsing logic"
   - `writeWorkspaceFile(containerId: string, filePath: string, content: string): Promise<{ path: string; size: number; savedAt: string }>`
   - `readDockerInventory(containerId: string): Promise<DockerInventory>`
 
-- [ ] **Step 1: Implement the service with fixed shell scripts**
+- [x] **Step 1: Implement the service with fixed shell scripts**
 
 `listWorkspaceFiles` runs:
 
@@ -210,7 +210,7 @@ message to `404`; everything else to `400` or `409` with the sanitised stderr.
 Call `normaliseWorkspacePath` before every command. Reject content over
 `MAX_EDITOR_FILE_BYTES`, content containing `\0`, and binary reads.
 
-- [ ] **Step 2: Implement `readDockerInventory`**
+- [x] **Step 2: Implement `readDockerInventory`**
 
 Run these fixed commands in parallel, parse each with `parseJsonLines`, and
 cap every result at 200 rows:
@@ -227,12 +227,12 @@ Normalize names by stripping a leading `/` from `Names`. Strip a leading
 exits non-zero, throw `HttpError(502, 'Could not read Docker objects')` and
 log the stderr server-side without object contents.
 
-- [ ] **Step 3: Run backend typecheck**
+- [x] **Step 3: Run backend typecheck**
 
 Run: `npm run typecheck` in `backend/`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/src/services/workspace.service.ts backend/src/lib/errors.ts
@@ -255,7 +255,7 @@ git commit -m "feat: add workspace and docker inventory services"
   - `PUT /api/sessions/:id/files/content`
   - `GET /api/sessions/:id/docker`
 
-- [ ] **Step 1: Add a readiness guard and routes**
+- [x] **Step 1: Add a readiness guard and routes**
 
 Add a local helper:
 
@@ -276,7 +276,7 @@ other than `student` with `403`. The `PUT` body must accept `content` exactly
 as sent (do not trim it). After a successful write, update
 `lastActivityAt` and insert `[editor] saved <path>` into `commandLog`.
 
-- [ ] **Step 2: Add integration tests for the boundary**
+- [x] **Step 2: Add integration tests for the boundary**
 
 Append to the existing integration suite:
 
@@ -306,12 +306,12 @@ it('protects session workspace routes from other users', async () => {
 This deliberately does not create a container; it proves auth and route
 wiring. Real file operations are covered by the smoke test.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run: `npm test` in `backend/`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/src/routes/sessions.routes.ts backend/src/routes/api.integration.test.ts
@@ -330,7 +330,7 @@ git commit -m "feat: expose session file and docker endpoints"
 - Produces:
   - `CodeEditor({ value, path, readOnly, onChange, className }: { value: string; path: string; readOnly: boolean; onChange: (value: string) => void; className?: string })`
 
-- [ ] **Step 1: Install CodeMirror**
+- [x] **Step 1: Install CodeMirror**
 
 Run in `frontend/`:
 
@@ -338,7 +338,7 @@ Run in `frontend/`:
 npm install @uiw/react-codemirror @codemirror/lang-html @codemirror/lang-javascript @codemirror/lang-python @codemirror/lang-yaml @codemirror/legacy-modes
 ```
 
-- [ ] **Step 2: Implement `CodeEditor.tsx`**
+- [x] **Step 2: Implement `CodeEditor.tsx`**
 
 Use `@uiw/react-codemirror` with line numbers, history, bracket matching, and
 a fixed height. Choose an extension from the lowercased path:
@@ -354,12 +354,12 @@ a fixed height. Choose an extension from the lowercased path:
 Set `editable: !readOnly`, `readOnly` from props, `theme="light"`, and a
 minimum height of 260px. Use `fontFamily: var(--font-mono)`.
 
-- [ ] **Step 3: Typecheck**
+- [x] **Step 3: Typecheck**
 
 Run: `npm run typecheck` in `frontend/`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/package.json frontend/package-lock.json frontend/src/components/CodeEditor.tsx
@@ -380,7 +380,7 @@ git commit -m "feat: add CodeMirror editor component"
   - `WorkspaceFiles({ sessionId, readOnly, className }: { sessionId: string; readOnly?: boolean; className?: string })`
   - Types `WorkspaceFileEntry`, `WorkspaceListing`, `WorkspaceFileContent`.
 
-- [ ] **Step 1: Add response types**
+- [x] **Step 1: Add response types**
 
 ```ts
 export interface WorkspaceFileEntry {
@@ -403,7 +403,7 @@ export interface WorkspaceFileContent {
 }
 ```
 
-- [ ] **Step 2: Implement the component**
+- [x] **Step 2: Implement the component**
 
 Behaviour:
 
@@ -424,12 +424,12 @@ Layout: `grid` with a 210px rail on `md+` and stacked panes below; editor fills
 the remaining height. Use existing slate/navy palette and `vlab-card`/button
 classes.
 
-- [ ] **Step 3: Typecheck and build**
+- [x] **Step 3: Typecheck and build**
 
 Run: `npm run typecheck` and `npm run build` in `frontend/`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/api/types.ts frontend/src/components/WorkspaceFiles.tsx
@@ -449,12 +449,12 @@ git commit -m "feat: add browser file workspace"
   - `DockerInventory` and row types in `api/types.ts`
   - `DockerInspector({ sessionId, className }: { sessionId: string; className?: string })`
 
-- [ ] **Step 1: Add inventory types**
+- [x] **Step 1: Add inventory types**
 
 Add `DockerContainerRow`, `DockerImageRow`, `DockerNetworkRow`,
 `DockerVolumeRow`, and `DockerInventory` matching the spec payload.
 
-- [ ] **Step 2: Implement the panel**
+- [x] **Step 2: Implement the panel**
 
 - Poll `GET /sessions/${sessionId}/docker` every 5000ms with `usePolling`.
 - Tabs: Containers, Images, Networks, Volumes, each with a count badge.
@@ -468,12 +468,12 @@ Add `DockerContainerRow`, `DockerImageRow`, `DockerNetworkRow`,
 - Errors show a retry button.
 - All values are React text nodes; no HTML injection.
 
-- [ ] **Step 3: Typecheck**
+- [x] **Step 3: Typecheck**
 
 Run: `npm run typecheck` in `frontend/`
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/api/types.ts frontend/src/components/DockerInspector.tsx
@@ -492,7 +492,7 @@ git commit -m "feat: add read-only docker inventory panel"
 **Interfaces:**
 - Consumes: `WorkspaceFiles`, `DockerInspector`, existing `TerminalView`.
 
-- [ ] **Step 1: Student session tabs**
+- [x] **Step 1: Student session tabs**
 
 Replace the single `TerminalView` block with a `WorkspaceTabs` local component
 or inline markup:
@@ -505,7 +505,7 @@ or inline markup:
 - Code tab: `<WorkspaceFiles sessionId={session.id} />`.
 - Docker tab: `<DockerInspector sessionId={session.id} />`.
 
-- [ ] **Step 2: Teacher drawer tabs**
+- [x] **Step 2: Teacher drawer tabs**
 
 Replace the “Live terminal” section with a tabbed panel:
 
@@ -516,17 +516,17 @@ Replace the “Live terminal” section with a tabbed panel:
 - Panel height `h-96`.
 - Label the Files tab “Files · read-only”.
 
-- [ ] **Step 3: CSS**
+- [x] **Step 3: CSS**
 
 Add only what Tailwind cannot express: CodeMirror scrollbar styling and an
 `overflow-hidden` helper if needed. Do not add glow or neon effects.
 
-- [ ] **Step 4: Build and typecheck**
+- [x] **Step 4: Build and typecheck**
 
 Run: `npm run build` in `frontend/`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/pages/SessionView.tsx frontend/src/components/StudentDrawer.tsx frontend/src/index.css
@@ -543,7 +543,7 @@ git commit -m "feat: add workspace tabs for students and teachers"
 **Interfaces:**
 - No API change. `upsertLab` updates tasks by `labId_order`.
 
-- [ ] **Step 1: Replace Lab 4 with the Dockerfile build**
+- [x] **Step 1: Replace Lab 4 with the Dockerfile build**
 
 Use these four tasks:
 
@@ -579,19 +579,19 @@ Use these four tasks:
    to `/root/sum-inspect.txt`; check `GET /` and
    `running sum-service:v1`.
 
-- [ ] **Step 2: Update lab instructions**
+- [x] **Step 2: Update lab instructions**
 
 - Lab 2 task 1/2: add “You can create these files in the Code tab, or use
   the terminal examples below.”
 - Lab 6 description: add the CLI-to-Compose mapping sentence.
 - Lab 7 task 5: add “You can write this note in the Code tab.”
 
-- [ ] **Step 3: Reseed**
+- [x] **Step 3: Reseed**
 
 Run: `npm run db:seed` in `backend/`
 Expected: seed completes; Lab 4 has four updated tasks.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/prisma/labs.ts
@@ -608,7 +608,7 @@ git commit -m "feat: make Lab 4 a real Dockerfile build"
 **Interfaces:**
 - Consumes: the four API endpoints from Task 3.
 
-- [ ] **Step 1: Add file and inventory checks**
+- [x] **Step 1: Add file and inventory checks**
 
 After the terminal commands have run and before stopping the session:
 
@@ -647,7 +647,7 @@ check(
 );
 ```
 
-- [ ] **Step 2: Verify compose stack and run smoke**
+- [x] **Step 2: Verify compose stack and run smoke**
 
 Run at repo root:
 
@@ -664,7 +664,7 @@ npm run smoke
 
 Expected: `SMOKE OK` with the new checks passing.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add backend/scripts/smoke.ts
@@ -681,27 +681,27 @@ git commit -m "test: cover editor and docker inventory in smoke"
 - Modify: `scripts/capture-screenshots.mjs`
 - Add: `docs/screenshots/student-editor.png`, `docs/screenshots/teacher-docker.png`
 
-- [ ] **Step 1: Write the ADR**
+- [x] **Step 1: Write the ADR**
 
 Record: file access is container-scoped to `/root`; teachers read-only;
 Docker inventory read-only; no host socket; 256 KiB/UTF-8 limits; fixed
 commands; why Compose is not a hard dependency.
 
-- [ ] **Step 2: Update docs**
+- [x] **Step 2: Update docs**
 
 - README: feature list, student flow (“Code tab”), teacher review flow,
   limitations (no Docker Desktop GUI, no binary editing, Lab 6 Compose note).
 - Testing guide: new API endpoints, manual checks, smoke additions.
 - Presentation outline: demonstrate editor + Docker tab.
 
-- [ ] **Step 3: Update screenshot capture**
+- [x] **Step 3: Update screenshot capture**
 
 Add a navigation helper that opens a student session, clicks the Code tab,
 saves a sample file through the API if needed, captures
 `student-editor.png`, then logs in as the teacher, opens the student drawer,
 selects Docker, and captures `teacher-docker.png`.
 
-- [ ] **Step 4: Regenerate screenshots**
+- [x] **Step 4: Regenerate screenshots**
 
 Run:
 
@@ -711,7 +711,7 @@ node scripts/capture-screenshots.mjs
 
 Expected: all screenshots regenerate and the two new files are present.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs README.md scripts/capture-screenshots.mjs
@@ -724,7 +724,7 @@ git commit -m "docs: document the browser workspace and inspector"
 
 **Files:** none.
 
-- [ ] **Step 1: Backend tests and typecheck**
+- [x] **Step 1: Backend tests and typecheck**
 
 ```bash
 cd backend
@@ -734,7 +734,7 @@ npm run typecheck
 
 Expected: all tests pass, no TypeScript errors.
 
-- [ ] **Step 2: Frontend build**
+- [x] **Step 2: Frontend build**
 
 ```bash
 cd frontend
@@ -743,7 +743,7 @@ npm run build
 
 Expected: Vite build succeeds.
 
-- [ ] **Step 3: Compose and smoke**
+- [x] **Step 3: Compose and smoke**
 
 ```bash
 docker compose up --build -d
@@ -753,7 +753,7 @@ npm run smoke
 
 Expected: `SMOKE OK`.
 
-- [ ] **Step 4: Manual browser verification**
+- [x] **Step 4: Manual browser verification**
 
 Open `http://localhost:5173`, log in as `student1@vlab.dev / student123`,
 open Lab 2 or Lab 4, and verify:
@@ -765,7 +765,7 @@ open Lab 2 or Lab 4, and verify:
 - Terminal still works.
 - Teacher login shows Files read-only and Docker inventory.
 
-- [ ] **Step 5: Push the branch**
+- [x] **Step 5: Push the branch**
 
 ```bash
 git push -u origin feature/editor-docker-workspace

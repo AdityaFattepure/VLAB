@@ -1,5 +1,8 @@
 # Browser Workspace and Docker Inspector
 
+**Status:** Implemented and verified on 2026-10-20. See
+`docs/adr/0003-browser-workspace-access.md`.
+
 ## Problem
 
 The seven CBAD handout labs currently run in a browser terminal only. That is

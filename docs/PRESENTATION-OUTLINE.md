@@ -26,11 +26,11 @@ VLab's differentiator is the **class workflow**: teacher creates a lab and check
 
 Use the diagram from `README.md` (mermaid). Explain the three boundaries:
 
-1. Browser: React + xterm.js; REST polling for dashboards, WebSocket for the terminal.
+1. Browser: React + xterm.js + CodeMirror; REST polling for dashboards, files, and Docker inventory, WebSocket for the terminal.
 2. Backend: Express + `dockerode` + `ws`; owns the Docker socket and all authorization.
 3. Runtime: one container per student; DinD gets its own inner daemon; `linux-basic` is unprivileged.
 
-Say explicitly: **students never receive the Docker socket**; the terminal is a `docker exec` into their own container.
+Say explicitly: **students never receive the Docker socket**; the terminal is a `docker exec` into their own container. The file and Docker tabs use the same exec path, with a fixed command/allowlist and read-only rules.
 
 ## 4. Data model (ER)
 
@@ -50,6 +50,8 @@ Use the ER diagram from `README.md`. Point out:
 - `sessions` — container provisioning, readiness, stop/reset, idle cleanup.
 - `checker` — 15s per-check timeout, serialized per session, 30s loop + manual button.
 - `terminal` — shared hijacked exec, read-only teacher attach, scrollback.
+- `workspace` — `/root` file listing, UTF-8 reads/writes, 256 KiB cap, teacher read-only.
+- `docker inventory` — fixed `ps/images/network/volume` commands, capped at 200 rows, no controls.
 - `commandlog` — `tail -F` of the shell's log, restart-safe dedupe.
 - `jobs` — checker and cleanup schedulers.
 
@@ -60,8 +62,10 @@ Follow `README.md` → Teaching demo. The strongest 30 seconds:
 - Teacher overview shows CC1/CC3, batches A/B, and evidence to review.
 - Host: `docker ps --filter name=vlab-` → only VLab containers.
 - Student terminal: `docker ps` → `hello-web`.
+- Student **Code** tab: open `/root/sum-service/app.sh`; **Docker** tab shows the containers and images without typing a command.
 - Teacher class workspace: the same student's name, task ticks, last command.
-- Teacher drawer: read-only live terminal.
+- Teacher drawer: read-only terminal, **Files · read-only**, and the same Docker inventory.
+- Build Lab 4 from `app.sh` + `Dockerfile`; `curl` returns `42` and all four checks pass.
 - Teacher reviews a screenshot and the student sees the grade.
 
 ## 7. Security and trade-offs
@@ -70,7 +74,9 @@ Follow `README.md` → Teaching demo. The strongest 30 seconds:
 - In production: microVM per student or dedicated lab hosts.
 - `docker.sock` only in the backend.
 - Role and ownership checks on every route and on the WebSocket upgrade.
-- Teacher input dropped server-side.
+- Teacher input dropped server-side; teacher file writes return `403`.
+- Files are path-normalised to `/root`, passed as positional arguments, UTF-8 only, max 256 KiB.
+- Docker inventory commands are fixed; the endpoint is not a proxy for arbitrary Docker API calls.
 - Resource limits: 1 GB / 1 CPU / 512 PIDs for DinD.
 - Command logging is advisory (`PROMPT_COMMAND` can be unset).
 
@@ -96,6 +102,8 @@ Follow `README.md` → Teaching demo. The strongest 30 seconds:
 - Single backend instance; SQLite for demo reliability; PostgreSQL switch documented.
 - Evidence is stored on a local volume; no gradebook export, password reset, or email verification yet.
 - Terminal token in query params (needs TLS in production).
+- The editor is text-only (256 KiB, no binaries/deletion/multi-file tabs); the Docker tab is inventory, not Docker Desktop.
+- Lab 6 teaches scaling with CLI replicas and documents the equivalent Compose scale command; Compose is not required.
 - Next: microVM runtime, per-task hints, CSV export, LTI integration, autoscaling lab hosts.
 
 ## Demo checklist (before presenting)
@@ -105,7 +113,9 @@ Follow `README.md` → Teaching demo. The strongest 30 seconds:
 - [ ] Teacher overview loads with four section/batch classes
 - [ ] Two student tabs start labs and show terminals
 - [ ] Four Lab 1 checks pass
-- [ ] Teacher drawer shows the read-only terminal
+- [ ] Code tab opens a file and Docker tab lists `hello-web` / `nginx:alpine`
+- [ ] Lab 4 builds from `app.sh` + `Dockerfile` and all four checks pass
+- [ ] Teacher drawer shows the read-only terminal, read-only files, and Docker inventory
 - [ ] Evidence upload and teacher review work end to end
 - [ ] `docker compose exec backend npm run smoke` prints `SMOKE OK`
 - [ ] Screenshots captured into `docs/screenshots/`
