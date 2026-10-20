@@ -160,6 +160,45 @@ async function main() {
     checked.results.map((r: any) => (r.passed ? '1' : '0')).join(''),
   );
 
+  const saved = await api(`/api/sessions/${session.id}/files/content`, {
+    method: 'PUT',
+    token: student.token,
+    body: { path: '/root/smoke-note.txt', content: 'vlab smoke\n' },
+  });
+  check(saved.size === 11, 'editor saves a file in the lab container', String(saved.size));
+
+  const read = await api(
+    `/api/sessions/${session.id}/files/content?path=/root/smoke-note.txt`,
+    { token: student.token },
+  );
+  check(read.content === 'vlab smoke\n', 'editor reads the saved file back');
+
+  const teacherRead = await api(
+    `/api/sessions/${session.id}/files/content?path=/root/smoke-note.txt`,
+    { token: teacher.token },
+  );
+  check(teacherRead.content === 'vlab smoke\n', 'teacher can read the student file');
+
+  const listing = await api(`/api/sessions/${session.id}/files?path=/root`, {
+    token: student.token,
+  });
+  check(
+    listing.entries.some((entry: any) => entry.path === '/root/smoke-note.txt'),
+    'workspace listing includes the saved file',
+  );
+
+  const inventory = await api(`/api/sessions/${session.id}/docker`, {
+    token: teacher.token,
+  });
+  check(
+    inventory.containers.some((row: any) => row.name === 'hello-web'),
+    'teacher sees the student container in the Docker inventory',
+  );
+  check(
+    inventory.images.some((row: any) => row.repository === 'nginx'),
+    'Docker inventory lists the nginx image',
+  );
+
   const dashboard = await api(`/api/classes/${lab.class.id}/dashboard`, {
     token: teacher.token,
   });
