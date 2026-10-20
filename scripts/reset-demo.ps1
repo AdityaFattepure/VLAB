@@ -1,6 +1,7 @@
 # Resets VLab to a clean demo state between rehearsals.
 # Removes every student lab container, then clears sessions, task results,
-# and command logs. Accounts, classes, labs, tasks, and assignments are kept.
+# command logs, and evidence submissions. Accounts, classes, labs, tasks,
+# and assignments are kept.
 #
 # Usage:  powershell -ExecutionPolicy Bypass -File scripts\reset-demo.ps1
 

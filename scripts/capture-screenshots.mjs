@@ -1,4 +1,4 @@
-// Captures review-2 screenshots from the running stack using headless Edge + CDP.
+// Captures product screenshots from the running stack using headless Edge + CDP.
 //
 //   node scripts/capture-screenshots.mjs
 //
@@ -101,8 +101,15 @@ async function main() {
     body: { email: 'student1@vlab.dev', password: 'student123' },
   });
 
+  const classes = await api('/classes', { token: teacher.token });
+  const classId = classes[0]?.id;
+  if (!classId) throw new Error('teacher has no seeded class');
+
   const assignments = await api('/assignments/mine', { token: student.token });
-  const assignment = assignments.find((item) => item.lab.template === 'docker-dind') ?? assignments[0];
+  const assignment =
+    assignments.find((item) => item.lab.code === 'Lab 1') ??
+    assignments.find((item) => item.lab.template === 'docker-dind') ??
+    assignments[0];
   if (!assignment) throw new Error('no seeded assignment found for student1');
 
   const session = await api('/sessions', {
@@ -180,20 +187,42 @@ async function main() {
     await screenshot(cdp, sessionId, 'login.png');
 
     await setAuth(cdp, sessionId, teacher.token, teacher.user);
-    await goto(cdp, sessionId, '/teacher', 5000);
-    await screenshot(cdp, sessionId, 'teacher-live.png');
+    await goto(cdp, sessionId, '/teacher', 3500);
+    await screenshot(cdp, sessionId, 'teacher-overview.png');
+
+    await goto(cdp, sessionId, `/teacher/classes/${classId}`, 4500);
+    await screenshot(cdp, sessionId, 'teacher-class.png');
+
+    await cdp.send(
+      'Runtime.evaluate',
+      { expression: 'window.scrollTo(0, document.body.scrollHeight)' },
+      sessionId,
+    );
+    await sleep(1200);
+    await screenshot(cdp, sessionId, 'teacher-evidence.png');
 
     await cdp.send(
       'Runtime.evaluate',
       { expression: "document.querySelector('tbody tr')?.click()" },
       sessionId,
     );
-    await sleep(4500);
-    await screenshot(cdp, sessionId, 'teacher-drawer.png');
+    await sleep(2500);
+    await screenshot(cdp, sessionId, 'teacher-student.png');
 
     await setAuth(cdp, sessionId, student.token, student.user);
     await goto(cdp, sessionId, '/student', 3500);
     await screenshot(cdp, sessionId, 'student-labs.png');
+
+    await cdp.send(
+      'Runtime.evaluate',
+      {
+        expression:
+          "[...document.querySelectorAll('button')].find((button) => button.textContent?.includes('View / resubmit'))?.click()",
+      },
+      sessionId,
+    );
+    await sleep(1200);
+    await screenshot(cdp, sessionId, 'student-submission.png');
 
     await goto(cdp, sessionId, `/student/session/${session.id}`, 5000);
     await screenshot(cdp, sessionId, 'student-terminal.png');
