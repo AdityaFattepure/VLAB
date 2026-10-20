@@ -102,14 +102,16 @@ async function main() {
   check(student.user.name === 'Aarav Sharma', 'student name is returned to the UI', student.user.name);
 
   const assignments = await api('/api/assignments/mine', { token: student.token });
-  const dockerLab = assignments.find((a: any) => a.lab.title === 'Docker Basics');
-  check(Boolean(dockerLab), 'seeded Docker Basics assignment is visible to the student');
-  check(dockerLab?.lab.tasks.length === 3, 'lab has three tasks');
+  const lab = assignments.find(
+    (a: any) => a.lab.title === 'Docker installation and verification',
+  );
+  check(Boolean(lab), 'seeded Lab 1 assignment is visible to the student');
+  check(lab?.lab.tasks.length === 4, 'Lab 1 has four tasks');
 
   const session = await api('/api/sessions', {
     method: 'POST',
     token: student.token,
-    body: { assignmentId: dockerLab.id },
+    body: { assignmentId: lab.id },
   });
   check(Boolean(session.id), 'session created', session.id);
 
@@ -128,9 +130,10 @@ async function main() {
   check(true, 'terminal WebSocket attached');
 
   const solution = [
-    'docker run -d --name web nginx:alpine',
-    'docker build -t myapp:v1 /root/app',
-    'docker volume create data',
+    'docker --version',
+    "docker info --format '{{.ServerVersion}}'",
+    'docker run -d --name hello-web -p 8080:80 nginx:alpine',
+    'curl -fsS http://localhost:8080',
   ];
 
   for (const command of solution) {
@@ -144,7 +147,8 @@ async function main() {
       `command to be logged: ${command}`,
     );
   }
-  check(true, 'all three commands ran and were logged');
+  check(true, 'all four commands ran and were logged');
+  await sleep(2000);
 
   const checked = await api(`/api/sessions/${session.id}/check`, {
     method: 'POST',
@@ -152,11 +156,11 @@ async function main() {
   });
   check(
     checked.results.every((r: any) => r.passed),
-    'checker marks all three tasks passed',
+    'checker marks all four tasks passed',
     checked.results.map((r: any) => (r.passed ? '1' : '0')).join(''),
   );
 
-  const dashboard = await api(`/api/classes/${dockerLab.class.id}/dashboard`, {
+  const dashboard = await api(`/api/classes/${lab.class.id}/dashboard`, {
     token: teacher.token,
   });
   const row = dashboard.students.find((s: any) => s.name === 'Aarav Sharma');

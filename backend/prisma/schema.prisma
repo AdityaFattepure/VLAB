@@ -19,16 +19,24 @@ model User {
   createdLabs   Lab[]         @relation("CreatedLabs")
   memberships   ClassMember[]
   sessions      Session[]
+  submissions   Submission[]
 }
 
 model Class {
-  id        String   @id @default(cuid())
-  name      String
-  joinCode  String   @unique
-  teacherId String
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  name        String
+  joinCode    String   @unique
+  teacherId   String
+  courseCode  String   @default("23CSE3118")
+  courseTitle String   @default("Container Based Application Development Lab")
+  courseShort String   @default("CBAD")
+  section     String   @default("")
+  batch       String   @default("")
+  schedule    String   @default("")
+  room        String   @default("")
+  createdAt   DateTime @default(now())
 
-  teacher     User         @relation("TeacherClasses", fields: [teacherId], references: [id])
+  teacher     User          @relation("TeacherClasses", fields: [teacherId], references: [id])
   members     ClassMember[]
   assignments Assignment[]
 }
@@ -46,12 +54,16 @@ model ClassMember {
 }
 
 model Lab {
-  id          String   @id @default(cuid())
-  title       String
-  description String   @default("")
-  template    String // "linux-basic" | "docker-dind"
-  createdBy   String
-  createdAt   DateTime @default(now())
+  id               String   @id @default(cuid())
+  title            String
+  description      String   @default("")
+  template         String // "linux-basic" | "docker-dind"
+  code             String   @default("")
+  objective        String   @default("")
+  co               String   @default("")
+  estimatedMinutes Int      @default(60)
+  createdBy        String
+  createdAt        DateTime @default(now())
 
   creator     User         @relation("CreatedLabs", fields: [createdBy], references: [id])
   tasks       Task[]
@@ -75,15 +87,18 @@ model Task {
 }
 
 model Assignment {
-  id        String    @id @default(cuid())
-  labId     String
-  classId   String
-  dueAt     DateTime?
-  createdAt DateTime  @default(now())
+  id                 String    @id @default(cuid())
+  labId              String
+  classId            String
+  dueAt              DateTime?
+  instructions       String    @default("")
+  requiresSubmission Boolean   @default(true)
+  createdAt          DateTime  @default(now())
 
-  lab     Lab    @relation(fields: [labId], references: [id], onDelete: Cascade)
-  class   Class  @relation(fields: [classId], references: [id], onDelete: Cascade)
-  sessions Session[]
+  lab         Lab          @relation(fields: [labId], references: [id], onDelete: Cascade)
+  class       Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  sessions    Session[]
+  submissions Submission[]
 
   @@unique([labId, classId])
 }
@@ -135,4 +150,28 @@ model CommandLog {
 
   @@unique([sessionId, ts, command])
   @@index([sessionId, ts])
+}
+
+model Submission {
+  id           String    @id @default(cuid())
+  assignmentId String
+  studentId    String
+  status       String    @default("submitted") // draft | submitted | reviewed
+  note         String    @default("")
+  fileName     String?
+  fileType     String?
+  fileSize     Int?
+  filePath     String?
+  submittedAt  DateTime?
+  reviewedAt   DateTime?
+  feedback     String    @default("")
+  grade        Int?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId, status])
 }

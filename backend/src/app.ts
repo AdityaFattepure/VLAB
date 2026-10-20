@@ -10,7 +10,7 @@ import { sessionsRouter } from './routes/sessions.routes.js';
 
 export function createApp() {
   const app = express();
-  app.use(express.json({ limit: '2mb' }));
+  app.use(express.json({ limit: '12mb' }));
 
   app.get('/api/health', async (_req, res) => {
     let dockerOk = false;

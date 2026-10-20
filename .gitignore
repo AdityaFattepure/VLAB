@@ -9,3 +9,5 @@ graphify-out/
 .DS_Store
 coverage/
 *.log
+uploads/
+uploads-test/

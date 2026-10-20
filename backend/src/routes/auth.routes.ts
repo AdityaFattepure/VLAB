@@ -3,13 +3,14 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../prisma.js';
 import { HttpError } from '../lib/errors.js';
 import { reqString } from '../lib/validate.js';
+import { isEmail, isUserRole, normalizeEmail } from '../lib/auth.logic.js';
 import { signToken, type AuthUser } from '../lib/jwt.js';
 import { currentUser, requireAuth } from '../middleware/auth.js';
 
 export const authRouter = Router();
 
 authRouter.post('/login', async (req, res) => {
-  const email = reqString(req.body?.email, 'Email').toLowerCase();
+  const email = normalizeEmail(reqString(req.body?.email, 'Email'));
   const password = reqString(req.body?.password, 'Password');
 
   const user = await prisma.user.findUnique({ where: { email } });
@@ -30,22 +31,28 @@ authRouter.post('/login', async (req, res) => {
 
 authRouter.post('/register', async (req, res) => {
   const name = reqString(req.body?.name, 'Name', { min: 2, max: 80 });
-  const email = reqString(req.body?.email, 'Email').toLowerCase();
+  const email = normalizeEmail(reqString(req.body?.email, 'Email'));
   const password = reqString(req.body?.password, 'Password', { min: 6, max: 100 });
+  const requestedRole = req.body?.role ?? 'student';
 
-  if (!email.includes('@') || !email.includes('.')) {
-    throw new HttpError(400, 'Enter a valid email address');
+  if (!isUserRole(requestedRole)) {
+    throw new HttpError(400, 'Choose whether this is a student or teacher account');
   }
+  if (!isEmail(email)) throw new HttpError(400, 'Enter a valid email address');
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) throw new HttpError(409, 'An account with this email already exists');
 
-  // Self-registration always creates a student. Teachers come from the seed.
   const user = await prisma.user.create({
-    data: { name, email, passwordHash: await bcrypt.hash(password, 10), role: 'student' },
+    data: {
+      name,
+      email,
+      passwordHash: await bcrypt.hash(password, 10),
+      role: requestedRole,
+    },
   });
 
-  const authUser: AuthUser = { id: user.id, name: user.name, email: user.email, role: 'student' };
+  const authUser: AuthUser = { id: user.id, name: user.name, email: user.email, role: requestedRole };
   res.status(201).json({ token: signToken(authUser), user: authUser });
 });
 

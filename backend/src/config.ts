@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import path from 'node:path';
 
 function num(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -29,6 +30,7 @@ export const config = {
   checkTimeoutSeconds: num('CHECK_TIMEOUT_SECONDS', 15),
   sessionIdleMinutes: num('SESSION_IDLE_MINUTES', 30),
   registryMirror: str('REGISTRY_MIRROR', ''),
+  uploadsDir: str('UPLOADS_DIR', path.resolve(process.cwd(), 'uploads')),
 } as const;
 
 export type LabTemplate = keyof typeof config.images;

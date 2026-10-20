@@ -32,7 +32,10 @@ export async function getClassDashboard(
     include: {
       members: { include: { student: true }, orderBy: { joinedAt: 'asc' } },
       assignments: {
-        include: { lab: { include: { tasks: { orderBy: { order: 'asc' } } } } },
+        include: {
+          lab: { include: { tasks: { orderBy: { order: 'asc' } } } },
+          submissions: true,
+        },
         orderBy: { createdAt: 'desc' },
       },
     },
@@ -72,10 +75,15 @@ export async function getClassDashboard(
     }
   }
 
+  const submissions = new Map(
+    (assignment?.submissions ?? []).map((submission) => [submission.studentId, submission]),
+  );
+
   const students = klass.members
     .map((member) => {
       const session = sessions.find((s) => s.studentId === member.studentId);
       const byTask = new Map((session?.results ?? []).map((r) => [r.taskId, r]));
+      const submission = submissions.get(member.studentId);
 
       const taskRows = tasks.map((task) => {
         const result = byTask.get(task.id);
@@ -113,6 +121,20 @@ export async function getClassDashboard(
               lastCommandAt: last?.ts ?? null,
             }
           : null,
+        submission: submission
+          ? {
+              id: submission.id,
+              status: submission.status,
+              note: submission.note,
+              fileName: submission.fileName,
+              fileType: submission.fileType,
+              fileSize: submission.fileSize,
+              submittedAt: submission.submittedAt,
+              reviewedAt: submission.reviewedAt,
+              feedback: submission.feedback,
+              grade: submission.grade,
+            }
+          : null,
         tasks: taskRows,
         completed,
         total: taskRows.length,
@@ -121,23 +143,54 @@ export async function getClassDashboard(
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  const assignmentSummaries = klass.assignments.map((a) => {
+    const submitted = a.submissions.filter((s) => s.status !== 'draft').length;
+    const reviewed = a.submissions.filter((s) => s.status === 'reviewed').length;
+    return {
+      id: a.id,
+      labId: a.labId,
+      labTitle: a.lab.title,
+      labCode: a.lab.code,
+      dueAt: a.dueAt,
+      requiresSubmission: a.requiresSubmission,
+      taskCount: a.lab.tasks.length,
+      submissionCount: a.submissions.length,
+      submitted,
+      reviewed,
+    };
+  });
+
+  const selectedSummary = assignmentSummaries.find((a) => a.id === assignment?.id);
+
   return {
-    class: { id: klass.id, name: klass.name, joinCode: klass.joinCode },
+    class: {
+      id: klass.id,
+      name: klass.name,
+      joinCode: klass.joinCode,
+      courseCode: klass.courseCode,
+      courseTitle: klass.courseTitle,
+      courseShort: klass.courseShort,
+      section: klass.section,
+      batch: klass.batch,
+      schedule: klass.schedule,
+      room: klass.room,
+    },
     assignment: assignment
       ? {
           id: assignment.id,
           labId: assignment.labId,
           labTitle: assignment.lab.title,
+          labCode: assignment.lab.code,
           template: assignment.lab.template,
+          objective: assignment.lab.objective,
+          co: assignment.lab.co,
           dueAt: assignment.dueAt,
+          instructions: assignment.instructions,
+          requiresSubmission: assignment.requiresSubmission,
           taskCount: tasks.length,
         }
       : null,
-    assignments: klass.assignments.map((a) => ({
-      id: a.id,
-      labTitle: a.lab.title,
-      dueAt: a.dueAt,
-    })),
+    assignments: assignmentSummaries,
     students,
     activity: recent.slice(0, 20).map((entry) => ({
       studentId: entry.session.studentId,
@@ -150,6 +203,8 @@ export async function getClassDashboard(
       students: klass.members.length,
       running: sessions.filter((s) => s.status === 'ready').length,
       completed: students.filter((s) => s.total > 0 && s.progress === 100).length,
+      submitted: selectedSummary?.submitted ?? 0,
+      reviewed: selectedSummary?.reviewed ?? 0,
     },
   };
 }

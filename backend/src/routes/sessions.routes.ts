@@ -57,12 +57,21 @@ sessionsRouter.get('/:id', async (req, res) => {
     assignment: {
       id: session.assignment.id,
       dueAt: session.assignment.dueAt,
-      class: { id: session.assignment.class.id, name: session.assignment.class.name },
+      class: {
+        id: session.assignment.class.id,
+        name: session.assignment.class.name,
+        section: session.assignment.class.section,
+        batch: session.assignment.class.batch,
+        schedule: session.assignment.class.schedule,
+      },
       lab: {
         id: session.assignment.lab.id,
         title: session.assignment.lab.title,
         description: session.assignment.lab.description,
         template: session.assignment.lab.template,
+        code: session.assignment.lab.code,
+        objective: session.assignment.lab.objective,
+        co: session.assignment.lab.co,
       },
     },
     tasks: tasks.map((t) => ({

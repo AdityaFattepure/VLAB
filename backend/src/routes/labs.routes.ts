@@ -26,6 +26,10 @@ labsRouter.get('/', async (req, res) => {
       title: lab.title,
       description: lab.description,
       template: lab.template,
+      code: lab.code,
+      objective: lab.objective,
+      co: lab.co,
+      estimatedMinutes: lab.estimatedMinutes,
       taskCount: lab.tasks.length,
       assignmentCount: lab._count.assignments,
       tasks: lab.tasks.map((t) => ({
@@ -52,6 +56,10 @@ labsRouter.post('/', async (req, res) => {
       title,
       description: optString(req.body?.description) ?? '',
       template,
+      code: optString(req.body?.code) ?? '',
+      objective: optString(req.body?.objective) ?? '',
+      co: optString(req.body?.co) ?? '',
+      estimatedMinutes: optInt(req.body?.estimatedMinutes, 60),
       createdBy: user.id,
     },
   });
@@ -72,13 +80,27 @@ labsRouter.put('/:id', async (req, res) => {
   const user = currentUser(req);
   await requireOwnedLab(param(req, 'id'), user.id);
 
-  const data: { title?: string; description?: string; template?: string } = {};
+  const data: {
+    title?: string;
+    description?: string;
+    template?: string;
+    code?: string;
+    objective?: string;
+    co?: string;
+    estimatedMinutes?: number;
+  } = {};
   if (req.body?.title !== undefined) data.title = reqString(req.body.title, 'Title', { min: 2, max: 120 });
   if (req.body?.description !== undefined) data.description = optString(req.body.description) ?? '';
   if (req.body?.template !== undefined) {
     const template = reqString(req.body.template, 'Template');
     if (!isLabTemplate(template)) throw new HttpError(400, 'Unknown template');
     data.template = template;
+  }
+  if (req.body?.code !== undefined) data.code = optString(req.body.code) ?? '';
+  if (req.body?.objective !== undefined) data.objective = optString(req.body.objective) ?? '';
+  if (req.body?.co !== undefined) data.co = optString(req.body.co) ?? '';
+  if (req.body?.estimatedMinutes !== undefined) {
+    data.estimatedMinutes = optInt(req.body.estimatedMinutes, 60);
   }
 
   const lab = await prisma.lab.update({ where: { id: param(req, 'id') }, data });
