@@ -11,3 +11,8 @@ coverage/
 *.log
 uploads/
 uploads-test/
+
+# Local OpenCode configuration and skills
+.opencode/
+opencode.json
+opencode.jsonc
