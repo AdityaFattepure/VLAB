@@ -44,7 +44,7 @@ Use the ER diagram from `README.md`. Point out:
 
 - `auth` — login, teacher/student registration, JWT, role checks.
 - `classes` — course · section · batch classes, join codes, rosters, class switching, dashboard aggregation.
-- `labs` / `tasks` — the seven handout experiments, lab metadata, and check definitions.
+- `labs` / `tasks` — the seven handout experiments, the Basic demo tour, practice labs, and check definitions.
 - `assignments` — lab ↔ class plans, due dates, submission instructions.
 - `submissions` — evidence uploads, feedback, grades, protected downloads.
 - `sessions` — container provisioning, readiness, stop/reset, idle cleanup.
@@ -61,11 +61,16 @@ Follow `README.md` → Teaching demo. The strongest 30 seconds:
 
 - Teacher overview shows CC1/CC3, batches A/B, and evidence to review.
 - Host: `docker ps --filter name=vlab-` → only VLab containers.
-- Student terminal: `docker ps` → `hello-web`.
-- Student **Code** tab: open `/root/sum-service/app.sh`; **Docker** tab shows the containers and images without typing a command.
+- Student opens the **Basic** tour and runs six short commands:
+  `mkdir -p /root/demo`, `pwd > /root/demo/pwd.txt`,
+  `echo "I am learning Docker" > /root/demo/about.txt`,
+  `docker --version > /root/demo/version.txt`,
+  `docker run -d --name basic-web -p 8080:80 nginx:alpine`,
+  `curl -fsS http://localhost:8080 > /root/demo/page.html`.
+- Student **Code** tab: open `/root/demo/about.txt`; **Docker** tab shows `basic-web` and `nginx:alpine`.
 - Teacher class workspace: the same student's name, task ticks, last command.
 - Teacher drawer: read-only terminal, **Files · read-only**, and the same Docker inventory.
-- Build Lab 4 from `app.sh` + `Dockerfile`; `curl` returns `42` and all four checks pass.
+- Optional deeper demo: build Lab 4 from `app.sh` + `Dockerfile`; `curl` returns `42`.
 - Teacher reviews a screenshot and the student sees the grade.
 
 ## 7. Security and trade-offs
@@ -112,8 +117,9 @@ Follow `README.md` → Teaching demo. The strongest 30 seconds:
 - [ ] `powershell -File scripts/preflight.ps1` is green
 - [ ] Teacher overview loads with four section/batch classes
 - [ ] Two student tabs start labs and show terminals
-- [ ] Four Lab 1 checks pass
-- [ ] Code tab opens a file and Docker tab lists `hello-web` / `nginx:alpine`
+- [ ] Basic tour appears first in CBADL1 and passes all four checks
+- [ ] Version tasks stay red until their files exist, then turn green
+- [ ] Code tab opens `/root/demo/about.txt` and Docker tab lists `basic-web` / `nginx:alpine`
 - [ ] Lab 4 builds from `app.sh` + `Dockerfile` and all four checks pass
 - [ ] Teacher drawer shows the read-only terminal, read-only files, and Docker inventory
 - [ ] Evidence upload and teacher review work end to end

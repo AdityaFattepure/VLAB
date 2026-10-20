@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { classDisplayName } from '../src/lib/class.logic.js';
-import { MANUAL_LABS, PRACTICE_LABS, type SeedLab } from './labs.js';
+import { DEMO_LABS, MANUAL_LABS, PRACTICE_LABS, type SeedLab } from './labs.js';
 
 const prisma = new PrismaClient();
 
@@ -64,6 +64,12 @@ const COURSE = {
 
 const ASSIGNMENTS: Record<string, { labId: string; dueInDays: number; instructions: string }[]> = {
   CBADL1: [
+    {
+      labId: 'seed-lab-demo',
+      dueInDays: 1,
+      instructions:
+        'Run the six short commands and open the Files and Docker tabs for your teacher.',
+    },
     {
       labId: 'seed-lab-01',
       dueInDays: 3,
@@ -249,15 +255,16 @@ async function main() {
     });
   }
 
+  const allSeededLabs = [...MANUAL_LABS, ...DEMO_LABS, ...PRACTICE_LABS];
   const labs = new Map<string, { id: string }>();
-  for (const lab of [...MANUAL_LABS, ...PRACTICE_LABS]) {
+  for (const lab of allSeededLabs) {
     const row = await upsertLab(lab, teacher.id);
     labs.set(lab.id, row);
   }
 
   // Early builds created the practice labs with random ids. Remove those
-  // duplicates so the library is exactly the nine seeded labs.
-  const seededLabIds = [...MANUAL_LABS, ...PRACTICE_LABS].map((lab) => lab.id);
+  // duplicates so the library is exactly the seeded labs.
+  const seededLabIds = allSeededLabs.map((lab) => lab.id);
   const legacyLabs = await prisma.lab.findMany({
     where: {
       createdBy: teacher.id,
@@ -272,14 +279,16 @@ async function main() {
     });
   }
 
-  // Keep the first section on the seven handout experiments. Practice labs
-  // remain available in the library but are not part of the teaching plan.
+  // Keep the first section on the handout experiments plus the short demo
+  // tour. Practice labs remain available in the library but are not part of
+  // the teaching plan.
+  const teachingLabIds = [...MANUAL_LABS, ...DEMO_LABS].map((lab) => lab.id);
   const firstClass = classes.get('CBADL1');
   if (firstClass) {
     await prisma.assignment.deleteMany({
       where: {
         classId: firstClass.id,
-        labId: { notIn: MANUAL_LABS.map((lab) => lab.id) },
+        labId: { notIn: teachingLabIds },
       },
     });
   }
@@ -318,7 +327,9 @@ async function main() {
       `    ${row?.id ?? '?'}  ${classDisplayName({ ...COURSE, section: klass.section, batch: klass.batch })} (${klass.joinCode})`,
     );
   }
-  console.log(`  Labs    : ${MANUAL_LABS.length} from the handout + ${PRACTICE_LABS.length} practice labs`);
+  console.log(
+    `  Labs    : ${MANUAL_LABS.length} handout + ${DEMO_LABS.length} demo + ${PRACTICE_LABS.length} practice`,
+  );
 }
 
 main()

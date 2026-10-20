@@ -90,7 +90,7 @@ assignmentsRouter.get('/mine', requireRole('student'), async (req, res) => {
 
   const assignments = await prisma.assignment.findMany({
     where: { classId: { in: classIds } },
-    orderBy: { createdAt: 'asc' },
+    orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }],
     include: {
       lab: { include: { tasks: { orderBy: { order: 'asc' } } } },
       class: { include: { teacher: true } },

@@ -149,6 +149,24 @@ async function main() {
   );
   check(ready.status === 'ready', 'DinD container ready with a live inner daemon');
 
+  // These tasks ask the student to save command output. They must not pass just
+  // because the daemon can run the same read-only command on the checker's side.
+  const preflight = await api(`/api/sessions/${session.id}/check`, {
+    method: 'POST',
+    token: student.token,
+  });
+  const evidenceTaskIds = new Set(
+    lab.lab.tasks.slice(0, 2).map((task: any) => task.id as string),
+  );
+  const evidenceTasks = preflight.results.filter((result: any) =>
+    evidenceTaskIds.has(result.taskId),
+  );
+  check(
+    evidenceTasks.length === 2 && evidenceTasks.every((result: any) => !result.passedNow),
+    'version tasks require student-created files',
+    evidenceTasks.map((result: any) => (result.passedNow ? '1' : '0')).join(''),
+  );
+
   const ws = await openTerminal(session.id, student.token);
   check(true, 'terminal WebSocket attached');
 
@@ -164,8 +182,8 @@ async function main() {
   );
 
   const solution = [
-    'docker --version',
-    "docker info --format '{{.ServerVersion}}'",
+    'docker --version > /root/docker-version.txt',
+    "docker info --format '{{.ServerVersion}}' > /root/docker-server.txt",
     'docker run -d --name hello-web -p 8080:80 nginx:alpine',
     'curl -fsS http://localhost:8080',
   ];
@@ -233,7 +251,7 @@ async function main() {
   check(row?.session?.status === 'ready', 'dashboard shows the running container');
   check(row?.progress === 100, 'dashboard shows 100% progress', `${row?.progress}%`);
   check(dashboard.activity.length > 0, 'critical activity feed has entries', String(dashboard.activity.length));
-  check(dashboard.totals.students === 5, 'class roster shows five students');
+  check(dashboard.totals.students >= 5, 'class roster shows the seeded students');
 
   ws.close();
   const stopped = await api(`/api/sessions/${session.id}`, {
@@ -345,6 +363,92 @@ CMD ["/usr/local/bin/app.sh"]
       token: student.token,
     });
     check(lab4Stopped.status === 'stopped', 'Lab 4 session stopped and container removed');
+  }
+
+  const basic = assignments.find((entry: any) => entry.lab.code === 'Basic');
+  check(Boolean(basic), 'seeded Basic demo lab is visible to the student');
+  check(basic?.lab.tasks.length === 4, 'Basic demo lab has four short tasks');
+
+  if (basic) {
+    const basicSession = await api('/api/sessions', {
+      method: 'POST',
+      token: student.token,
+      body: { assignmentId: basic.id },
+    });
+    const basicReady = await poll(
+      async () => {
+        const current = await api(`/api/sessions/${basicSession.id}`, {
+          token: student.token,
+        });
+        if (current.status === 'error') throw new Error(current.errorMessage ?? 'session error');
+        return current.status === 'ready' ? current : null;
+      },
+      150000,
+      'the Basic demo container to become ready',
+    );
+    check(basicReady.status === 'ready', 'Basic demo container ready');
+
+    const basicKnownCommands = new Set<string>(
+      (
+        await api(`/api/sessions/${basicSession.id}/commands?limit=200`, {
+          token: student.token,
+        })
+      ).map((entry: any) => entry.id as string),
+    );
+    const basicWs = await openTerminal(basicSession.id, student.token);
+    const basicCommands = [
+      'mkdir -p /root/demo',
+      'pwd > /root/demo/pwd.txt',
+      'echo "I am learning Docker" > /root/demo/about.txt',
+      'docker --version > /root/demo/version.txt',
+      'docker run -d --name basic-web -p 8080:80 nginx:alpine',
+      'curl -fsS http://localhost:8080 > /root/demo/page.html',
+    ];
+
+    for (const command of basicCommands) {
+      await typeAndWaitForLog(
+        basicWs,
+        basicSession.id,
+        student.token,
+        command,
+        basicKnownCommands,
+      );
+    }
+    check(true, 'Basic demo commands completed');
+
+    const basicChecked = await api(`/api/sessions/${basicSession.id}/check`, {
+      method: 'POST',
+      token: student.token,
+    });
+    check(
+      basicChecked.results.every((result: any) => result.passed),
+      'Basic demo lab passes all four checks',
+      basicChecked.results.map((result: any) => (result.passed ? '1' : '0')).join(''),
+    );
+
+    const basicInventory = await api(`/api/sessions/${basicSession.id}/docker`, {
+      token: teacher.token,
+    });
+    check(
+      basicInventory.containers.some((row: any) => row.name === 'basic-web'),
+      'Docker inventory shows the demo web container',
+    );
+
+    const basicFile = await api(
+      `/api/sessions/${basicSession.id}/files/content?path=/root/demo/about.txt`,
+      { token: teacher.token },
+    );
+    check(
+      basicFile.content.includes('I am learning Docker'),
+      'teacher can open the demo text file read-only',
+    );
+
+    basicWs.close();
+    const basicStopped = await api(`/api/sessions/${basicSession.id}`, {
+      method: 'DELETE',
+      token: student.token,
+    });
+    check(basicStopped.status === 'stopped', 'Basic demo session stopped and container removed');
   }
 
   console.log(failures === 0 ? '\nSMOKE OK' : `\nSMOKE FAILED (${failures})`);

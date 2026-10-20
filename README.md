@@ -65,7 +65,7 @@ The teacher teaches CBAD to two sections, each split into two batches:
 | `CBADL3` | CBAD · CC3 · Batch A | Tuesday · 10:00–12:00 | Lab 206 | 2 |
 | `CBADL4` | CBAD · CC3 · Batch B | Thursday · 10:00–12:00 | Lab 206 | 0 |
 
-The seed follows the seven experiments in the CBAD handout (`23CSE3118`). CBADL1 receives all seven; the other batches receive a smaller plan so switching classes is visibly different. The teacher can assign **Lab 3 to CC1 Batch A and Lab 2 to CC1 Batch B** from the lab library.
+The seed follows the seven experiments in the CBAD handout (`23CSE3118`). CBADL1 receives all seven plus a short **Basic Linux and Docker tour** for demonstrations; the other batches receive a smaller plan so switching classes is visibly different. The teacher can assign **Lab 3 to CC1 Batch A and Lab 2 to CC1 Batch B** from the lab library.
 
 Students can register from the login screen and join with a class code. The login screen also creates teacher accounts for this demo; a production deployment would gate that behind an administrator or invite.
 
@@ -80,7 +80,7 @@ Students can register from the login screen and join with a class code. The logi
 - See every class (course, section, batch, schedule, room, join code, live labs, evidence to review) on one overview and switch between them.
 - Create another section or batch; each gets its own join code, roster, and assignment plan.
 - Change a class's subject, section, batch, schedule, or room in place; the join code and roster stay the same.
-- Work from the seven handout labs plus two practice labs, with objectives, course outcomes, and estimated time.
+- Work from the seven handout labs, a short Basic demo tour, and two practice labs, with objectives, course outcomes, and estimated time.
 - Create or edit labs and checkable tasks; assign different labs to different batches of the same section.
 - Add submission instructions and choose whether evidence is required.
 - Monitor a student × task grid: names, live/stopped status, per-task pass marks, progress %, last activity, and last command.
@@ -367,28 +367,31 @@ It removes every container labeled `vlab.session`, then deletes sessions, task r
 Aim for 8–10 minutes. Two browser tabs are enough; three students looks better.
 
 1. **Teacher overview** — sign in as `teacher@vlab.dev`. Point out the four classes: CBAD · CC1 · Batch A/B and CBAD · CC3 · Batch A/B, each with its own schedule, room, join code, and count of live labs and evidence to review.
-2. **Switch class** — open **CBAD · CC1 · Batch A**. Show that the assignment dropdown contains the seven handout experiments. Switch to **CBAD · CC1 · Batch B** from the header; it has a different assignment plan.
+2. **Switch class** — open **CBAD · CC1 · Batch A**. Show that the assignment dropdown starts with the **Basic Linux and Docker tour**, followed by the seven handout experiments. Switch to **CBAD · CC1 · Batch B** from the header; it has a different assignment plan.
 3. **Assign to a batch** — open **Lab library** → **Lab 3** → *Assign to a class* → `CBAD · CC1 · Batch B`. Explain that Batch A and Batch B are separate classes, so they can receive different labs.
-4. **Start a lab** — in a student tab, sign in as `student1@vlab.dev` (or register a student and join `CBADL1`). Open **Lab 1 — Docker installation and verification** → **Start lab**. Point out the provisioning spinner: a real container is being created and the inner daemon is starting.
-5. When the terminal appears, run:
+4. **Start a lab** — in a student tab, sign in as `student1@vlab.dev` (or register a student and join `CBADL1`). Open **Basic — Basic Linux and Docker tour** → **Start lab**. Point out the provisioning spinner: a real container is being created and the inner daemon is starting.
+5. When the terminal appears, run the six short commands:
    ```bash
-   docker --version
-   docker info --format '{{.ServerVersion}}'
-   docker run -d --name hello-web -p 8080:80 nginx:alpine
-   curl -fsS http://localhost:8080
+   mkdir -p /root/demo
+   pwd > /root/demo/pwd.txt
+   echo "I am learning Docker" > /root/demo/about.txt
+   docker --version > /root/demo/version.txt
+   docker run -d --name basic-web -p 8080:80 nginx:alpine
+   curl -fsS http://localhost:8080 > /root/demo/page.html
    ```
+   Keep the explanations short: `mkdir -p` makes the folder, `pwd` prints the current directory, `echo` writes text, `>` saves output to a file, `docker --version` prints the client version, and `docker run -d -p 8080:80` starts nginx in the background and maps port 8080 to port 80.
 6. **Prove isolation** on the host, in a separate terminal:
    ```bash
    docker ps --filter label=vlab.session --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'
    ```
-   The host sees one VLab sandbox per student, never the inner `hello-web` container. Inside the student terminal, `docker ps` sees `hello-web`. Two different daemons.
-7. Click **Check my work** — all four tasks turn green immediately. (Or wait 30s for the automatic pass.) Open the **Code** tab, create `/root/demo-note.txt`, and save it. Then open the **Docker** tab: `hello-web` and the `nginx:alpine` image are visible without typing `docker ps` or `docker images`.
+   The host sees one VLab sandbox per student, never the inner `basic-web` container. Inside the student terminal, `docker ps` sees `basic-web`. Two different daemons.
+7. Click **Check my work** — all four tasks turn green immediately. (Or wait 30s for the automatic pass.) Open the **Code** tab and open `/root/demo/about.txt`; then open the **Docker** tab: `basic-web` and `nginx:alpine` are visible without typing `docker ps` or `docker images`.
 8. **Submit evidence** — from **My assignments**, click **Submit evidence**, attach a screenshot or PDF, and add a note. Show the submitted badge.
 9. **Teacher tab** — the grid now shows Aarav Sharma, live status, 4/4, 100%, last command. The activity feed shows the typed commands and the `[editor] saved` marker. Click the row: command history, a **read-only live terminal**, the student's files, and the Docker inventory.
 10. **Review evidence** — open **Submitted evidence** in the class workspace, download the file, leave feedback, and set a grade. Switch back to the student: the same submission now shows the feedback and grade.
 11. Optional: **Reset lab** from the teacher panel, then **Stop all labs**. Show that the dashboard status changes and `docker ps` on the host is clean.
 
-Fallback if the room network is bad: images are pre-warmed by the lab image and the pull-through cache; the demo commands only use `nginx:alpine` and a local `Dockerfile`. You can also run the API smoke test to show the whole flow headlessly.
+Fallback if the room network is bad: images are pre-warmed by the lab image and the pull-through cache; the Basic demo only uses `nginx:alpine` and files under `/root`. You can also run the API smoke test to show the whole flow headlessly.
 
 ---
 
@@ -407,10 +410,13 @@ A task passes when:
 
 There is a 15-second server-side timeout as a backstop. Checks are serialized per session (one at a time), so the 30-second background loop and the student's button cannot interleave. The loop only checks tasks that have not passed yet; the button checks everything so the UI reflects the current state.
 
-Examples from the seeded handout labs:
+Examples from the seeded labs:
 
 | Lab | Task | Check |
 | --- | --- | --- |
+| Basic | Save the client version | `test -s /root/demo/version.txt && grep -qi 'docker version' …` |
+| Basic | Run `basic-web` and save the page | `docker ps … basic-web && grep -qi 'welcome to nginx' /root/demo/page.html` |
+| Lab 1 | Save the client version | `test -s /root/docker-version.txt && grep -qi 'docker version' …` |
 | Lab 1 | Run a container named `hello-web` | `docker ps --filter name=^/hello-web$ --filter status=running …` |
 | Lab 1 | Verify nginx answers on port 8080 | `curl -fsS http://localhost:8080 \| grep -qi 'welcome to nginx'` |
 | Lab 2 | Build an image tagged `hello-world:v1` | `docker images … \| grep -qx 'hello-world:v1'` |
@@ -419,7 +425,7 @@ Examples from the seeded handout labs:
 | Lab 5 | Reach the service by name on `sum-net` | `docker exec sum-client cat /root/result.txt \| grep -qx 42` |
 | Practice | Create a volume named `data` | `docker volume ls -q \| grep -qx 'data'` |
 
-Checks inspect **state**, never the command history, so renaming a container or doing it a different way still passes.
+Checks inspect **state**, never the command history, so renaming a container or doing it a different way still passes. Tasks that are about running a command ask the student to save the output to a file; the checker reads that file, so the check cannot pass by running the command on the checker's side.
 
 ---
 
@@ -474,7 +480,7 @@ Capacity note: each DinD student reserves 1 GB. A 4 GB Docker Desktop VM comfort
 ├── .env.example
 ├── backend/
 │   ├── prisma/schema.prisma  # SQLite schema
-│   ├── prisma/labs.ts        # the seven handout experiments + practice labs
+│   ├── prisma/labs.ts        # handout, demo, and practice lab definitions
 │   ├── prisma/seed.ts        # idempotent demo data
 │   ├── prisma/reset-demo.ts  # clears sessions + submissions between rehearsals
 │   ├── scripts/smoke.ts      # end-to-end API + terminal + checker test
@@ -558,7 +564,7 @@ Docker/DinD spike (no app required):
 cd backend && npm run spike
 ```
 
-End-to-end smoke test against a running stack. It logs in, starts a real DinD lab, types the four Lab 1 commands through the actual terminal WebSocket, runs the checker, verifies the editor file API and Docker inventory, then creates and builds Lab 4 from files saved through the same API. It also verifies the teacher dashboard:
+End-to-end smoke test against a running stack. It logs in, starts a real DinD lab, proves the Lab 1 version tasks stay red until their files exist, types the Lab 1 commands through the actual terminal WebSocket, runs the checker, verifies the editor file API and Docker inventory, then creates and builds Lab 4 from files saved through the same API. It finishes with the Basic demo tour and verifies the teacher dashboard:
 
 ```bash
 cd backend && npm run smoke

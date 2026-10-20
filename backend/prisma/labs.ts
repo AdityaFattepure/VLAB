@@ -1,7 +1,7 @@
 /**
- * The seven experiments from the CBAD handout (23CSE3118), written as
- * checkable lab tasks. The checker inspects real container state, so the
- * descriptions teach the workflow while the checks stay honest.
+ * The seven experiments from the CBAD handout (23CSE3118), plus a short demo
+ * tour, written as checkable lab tasks. The checker inspects real container
+ * state, so the descriptions teach the workflow while the checks stay honest.
  */
 
 export interface SeedTask {
@@ -42,19 +42,21 @@ export const MANUAL_LABS: SeedLab[] = [
     tasks: [
       {
         order: 1,
-        title: 'Check the Docker client version',
+        title: 'Save the Docker client version',
         description:
-          'Run the client version command.\n\nExample: docker --version\ndocker version --format "{{.Client.Version}}"',
-        checkCommand: "docker version --format '{{.Client.Version}}'",
+          'Write the client version to a file.\n\nRun:\ndocker --version > /root/docker-version.txt',
+        checkCommand:
+          "test -s /root/docker-version.txt && grep -qi 'docker version' /root/docker-version.txt",
         expectedOutputContains: null,
         expectedExitCode: 0,
       },
       {
         order: 2,
-        title: 'Check that the Docker daemon is running',
+        title: 'Save the Docker server version',
         description:
-          'Ask the daemon for its server version.\n\nExample: docker info --format "{{.ServerVersion}}"',
-        checkCommand: "docker info --format '{{.ServerVersion}}'",
+          "Ask the daemon for its version and save it.\n\nRun:\ndocker info --format '{{.ServerVersion}}' > /root/docker-server.txt",
+        checkCommand:
+          "test -s /root/docker-server.txt && grep -Eq '^[0-9]+\\.[0-9]+' /root/docker-server.txt",
         expectedOutputContains: null,
         expectedExitCode: 0,
       },
@@ -420,6 +422,68 @@ export const MANUAL_LABS: SeedLab[] = [
           'Create /root/monitor-notes.txt with at least three lines explaining which CPU, memory, and process signals you would watch, and why. You can write this note in the Code tab.',
         checkCommand:
           "test -f /root/monitor-notes.txt && [ \"$(wc -l < /root/monitor-notes.txt)\" -ge 3 ] && grep -qi cpu /root/monitor-notes.txt && grep -qi memory /root/monitor-notes.txt",
+        expectedOutputContains: null,
+        expectedExitCode: 0,
+      },
+    ],
+  },
+];
+
+/**
+ * A deliberately small lab for a live demonstration. Every task leaves a file
+ * or container behind, so the checker never has to guess whether a command was
+ * typed. The wording is short enough to read from the projector.
+ */
+export const DEMO_LABS: SeedLab[] = [
+  {
+    id: 'seed-lab-demo',
+    code: 'Basic',
+    title: 'Basic Linux and Docker tour',
+    description:
+      'A five-minute tour: navigate the shell, create a file, check Docker, and run a web container.',
+    objective:
+      'Use basic commands and the browser workspace, then show the teacher the files and containers you created.',
+    co: 'CO1',
+    estimatedMinutes: 10,
+    template: DOCKER,
+    tasks: [
+      {
+        order: 1,
+        title: 'Create your demo folder',
+        description:
+          'Create /root/demo and save your current directory.\n\nRun:\nmkdir -p /root/demo\npwd > /root/demo/pwd.txt',
+        checkCommand:
+          'test -s /root/demo/pwd.txt && grep -qx /root /root/demo/pwd.txt',
+        expectedOutputContains: null,
+        expectedExitCode: 0,
+      },
+      {
+        order: 2,
+        title: 'Write a short text file',
+        description:
+          'Create /root/demo/about.txt with one line of text.\n\nRun:\necho "I am learning Docker" > /root/demo/about.txt\n\nYou can also use the Code tab.',
+        checkCommand:
+          "test -f /root/demo/about.txt && grep -q 'I am learning Docker' /root/demo/about.txt",
+        expectedOutputContains: null,
+        expectedExitCode: 0,
+      },
+      {
+        order: 3,
+        title: 'Save the Docker version',
+        description:
+          'Save the client version to a file.\n\nRun:\ndocker --version > /root/demo/version.txt',
+        checkCommand:
+          "test -s /root/demo/version.txt && grep -qi 'docker version' /root/demo/version.txt",
+        expectedOutputContains: null,
+        expectedExitCode: 0,
+      },
+      {
+        order: 4,
+        title: 'Run and check a web server',
+        description:
+          'Start nginx on port 8080 and save its page.\n\nRun:\ndocker run -d --name basic-web -p 8080:80 nginx:alpine\ncurl -fsS http://localhost:8080 > /root/demo/page.html',
+        checkCommand:
+          "docker ps --filter name=^/basic-web$ --filter status=running --format '{{.Names}}' | grep -qx basic-web && test -s /root/demo/page.html && grep -qi 'welcome to nginx' /root/demo/page.html",
         expectedOutputContains: null,
         expectedExitCode: 0,
       },

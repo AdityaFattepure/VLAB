@@ -72,12 +72,14 @@ submissions, and returns one payload: per-student task rows, progress, last
 activity, last command, a 20-entry activity feed, evidence rows, and totals.
 
 Default assignment selection: the assignment with the most recent session
-activity; with no activity at all, the **first lab assigned** to the class
-(Lab 1). Use the **Assignment** dropdown to switch. Switching classes uses the
-same route with a different id, so the teacher does not sign in again.
+activity; with no activity at all, the **first assignment in the list** (the
+Basic tour in CBADL1). Use the **Assignment** dropdown to switch. Switching
+classes uses the same route with a different id, so the teacher does not sign in
+again.
 
-**Check:** the grid shows 5 seeded students, and the dropdown contains seven
-handout labs. Open **CBAD · CC1 · Batch B** and confirm its plan is different.
+**Check:** the grid shows the seeded students, and the dropdown starts with the
+**Basic** tour followed by the seven handout labs. Open **CBAD · CC1 · Batch B**
+and confirm its plan is different.
 
 ---
 
@@ -92,8 +94,8 @@ handout labs. Open **CBAD · CC1 · Batch B** and confirm its plan is different.
 stores the role from the form (`student` or `teacher`; teacher signup exists for
 this classroom demo). `POST /api/classes/join` resolves the join code to a class
 and inserts a `ClassMember` row. The student lab list polls
-`GET /api/assignments/mine` every 4 seconds, so the seven seeded labs appear
-without a reload. The same credentials reopen the same account and its classes.
+`GET /api/assignments/mine` every 4 seconds, so the seeded labs appear without
+a reload. The same credentials reopen the same account and its classes.
 
 Or sign in as the seeded `student1@vlab.dev` / `student123` (Aarav Sharma) to
 skip joining. Seeded students are already in the class.
@@ -205,28 +207,45 @@ After Lab 1, the Docker tab should list `hello-web` and `nginx:alpine`. Run
 
 ---
 
-## 6. Solve Lab 1
+## 6. Basic demo lab (recommended for demonstration)
 
-Type these in the student terminal:
+The **Basic Linux and Docker tour** is assigned to CBADL1. It is deliberately
+short: four checks, six commands, and enough files and Docker objects to show
+the teacher the workspace.
 
-```bash
-docker --version
-docker info --format '{{.ServerVersion}}'
-docker run -d --name hello-web -p 8080:80 nginx:alpine
-curl -fsS http://localhost:8080
-docker ps
-```
+1. Open **Basic — Basic Linux and Docker tour** → **Start lab**.
+2. Run the commands exactly as written:
 
-**What each command does:**
+   ```bash
+   mkdir -p /root/demo
+   pwd > /root/demo/pwd.txt
+   echo "I am learning Docker" > /root/demo/about.txt
+   docker --version > /root/demo/version.txt
+   docker run -d --name basic-web -p 8080:80 nginx:alpine
+   curl -fsS http://localhost:8080 > /root/demo/page.html
+   ```
 
-- `docker --version` and `docker info` talk to the **inner** daemon in your
-  sandbox. The host's containers are invisible here.
-- `docker run` asks the inner daemon to pull `nginx:alpine` (through the
-  pull-through cache when available), publishes port 8080, and starts a
-  container named `hello-web`.
-- `curl` requests the page from inside the sandbox, proving the container is
-  serving traffic.
-- The final `docker ps` shows the same container with its published port.
+3. Click **Check my work** — all four tasks pass.
+4. Open **Code** → `/root/demo/about.txt`; open **Docker** → `basic-web` and
+   `nginx:alpine`.
+5. Open the teacher drawer → **Files · read-only** → `/root/demo/about.txt`, then
+   **Docker** → the same `basic-web` container.
+
+**One-line meanings for the viva:**
+
+- `mkdir -p /root/demo` creates the folder, including parents, and does nothing
+  if it already exists.
+- `pwd` prints the current directory; `>` writes the output to a file.
+- `echo "..." > file` writes one line of text to a file.
+- `docker --version` prints the Docker **client** version.
+- `docker run -d --name basic-web -p 8080:80 nginx:alpine` runs nginx in the
+  background, names it `basic-web`, and maps host port 8080 to container port 80.
+- `curl -fsS URL > file` fetches the page and saves it; `-f` fails on HTTP
+  errors, `-s` hides progress, and `-S` still shows errors.
+
+The checker reads `/root/demo/pwd.txt`, `/root/demo/about.txt`,
+`/root/demo/version.txt`, and the `basic-web` container plus
+`/root/demo/page.html`. It never needs to read the command history.
 
 **Command logging:** every prompt triggers `PROMPT_COMMAND` in the bashrc,
 which appends `epoch_ms|command` to `/var/log/vlab/commands.log`. The backend
@@ -237,7 +256,35 @@ Checks never read the log.
 
 ---
 
-## 6a. Solve Lab 4 from the editor
+## 6a. Solve Lab 1 (handout)
+
+Lab 1 uses the same terminal workflow, but the first two tasks require files so
+the checker cannot pass them by running the same command itself.
+
+```bash
+docker --version > /root/docker-version.txt
+docker info --format '{{.ServerVersion}}' > /root/docker-server.txt
+docker run -d --name hello-web -p 8080:80 nginx:alpine
+curl -fsS http://localhost:8080
+docker ps
+```
+
+- The first command writes the **client** version to a file.
+- The second asks the **inner daemon** for its server version and writes it to
+  another file.
+- `docker run` pulls `nginx:alpine` through the cache when possible, publishes
+  port 8080, and starts `hello-web`.
+- `curl` proves the page is served from inside the sandbox.
+
+After the commands, `/root/docker-version.txt` and
+`/root/docker-server.txt` are the evidence for tasks 1 and 2. If task 1 shows a
+connection error, check that you used `docker --version` and not
+`docker version`: `docker version` also contacts the daemon, while the task only
+asks for the client version.
+
+---
+
+## 6b. Solve Lab 4 from the editor
 
 Lab 4 is the end-to-end test of the workspace: source files are created in the
 Code tab, then built and run in the terminal.
@@ -312,14 +359,23 @@ Every run upserts `TaskResult` with the output and `checkedAt`. The first pass
 also sets `firstPassedAt`, which is never cleared by later checks. That is why
 progress is durable: a student can delete the container and still be "done".
 
-Seeded Lab 1 checks:
+Seeded Basic and Lab 1 checks:
 
-| Task | Check |
-| --- | --- |
-| Docker client version | `docker version --format '{{.Client.Version}}'` |
-| Docker daemon running | `docker info --format '{{.ServerVersion}}'` |
-| `hello-web` running on 8080 | `docker ps --filter name=^/hello-web$ --filter status=running … \| grep -qx hello-web` |
-| nginx answers | `curl -fsS http://localhost:8080 \| grep -qi 'welcome to nginx'` |
+| Lab | Task | Check |
+| --- | --- | --- |
+| Basic | Demo folder and `pwd` file | `test -s /root/demo/pwd.txt && grep -qx /root …` |
+| Basic | Text file | `grep -q 'I am learning Docker' /root/demo/about.txt` |
+| Basic | Client version file | `grep -qi 'docker version' /root/demo/version.txt` |
+| Basic | `basic-web` + saved page | `docker ps … basic-web && grep -qi 'welcome to nginx' …/page.html` |
+| Lab 1 | Client version file | `test -s /root/docker-version.txt && grep -qi 'docker version' …` |
+| Lab 1 | Server version file | `test -s /root/docker-server.txt && grep -Eq '^[0-9]+\.[0-9]+' …` |
+| Lab 1 | `hello-web` running on 8080 | `docker ps --filter name=^/hello-web$ --filter status=running … \| grep -qx hello-web` |
+| Lab 1 | nginx answers | `curl -fsS http://localhost:8080 \| grep -qi 'welcome to nginx'` |
+
+The API returns both `passed` (durable: set once at `firstPassedAt`) and
+`passedNow` (this check run). The UI uses `passed` for progress; smoke uses
+`passedNow` before typing commands to prove the version tasks are not
+auto-passing.
 
 A failed check shows the captured output under the task, which makes debugging
 in the viva easy.
@@ -517,11 +573,13 @@ signup, class creation, joining by code, batch-specific assignment, evidence
 upload, protected download, review, and disallowed file types.
 
 `npm run smoke` prints one `PASS` per assertion and ends with `SMOKE OK`. It
-creates a real container, types the four Lab 1 commands through the terminal
+creates a real container, proves the Lab 1 version tasks fail before the
+student creates evidence, types the four Lab 1 commands through the terminal
 WebSocket, runs the checker, verifies the dashboard, exercises file save/read,
-the teacher read-only view, and the Docker inventory, then starts a second lab
-and builds **Lab 4** from files saved through the editor API. Both sessions and
-containers are stopped at the end.
+the teacher read-only view, and the Docker inventory, then builds **Lab 4** from
+files saved through the editor API. It finishes by running the **Basic demo
+lab** and checking its four tasks, file, and `basic-web` container. Every
+session and container is stopped at the end.
 
 ```powershell
 powershell -File scripts\preflight.ps1     # demo readiness
@@ -539,6 +597,8 @@ node scripts\capture-screenshots.mjs       # refresh docs/screenshots (Lab 4 + e
 | `Container did not become ready` | privileged mode / image issue | check Docker Desktop, rebuild `vlab/docker-dind:latest` |
 | Terminal says `closed` | shell exited or container stopped | **Reconnect**; check the status pill |
 | `409 Lab is not ready yet` | check too early | wait for **Live** |
+| Version task fails with a connection error | you ran `docker version` (contacts the daemon) instead of `docker --version > /root/docker-version.txt` | use the exact command from the task |
+| Basic tour is missing from the student list | backend was not reseeded after pulling the change | `docker compose up -d --build backend` or `npm run db:seed` |
 | Checks fail with `docker: not found` | Docker tasks assigned to the `linux-basic` template | fix the lab template |
 | Teacher grid empty | wrong assignment selected / nobody joined | use the Assignment dropdown; check join code |
 | `EADDRINUSE :3000` | a native backend is still running | stop it, or use compose only |
