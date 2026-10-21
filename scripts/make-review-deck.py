@@ -454,7 +454,7 @@ def main():
     footer(slide)
     metrics = [
         ("47", "backend unit tests"),
-        ("41", "smoke checks"),
+        ("43", "smoke checks"),
         ("4/4", "checks in the demo lab"),
         ("100%", "frontend build"),
     ]

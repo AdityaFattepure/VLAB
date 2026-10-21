@@ -44,7 +44,7 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 1,
         title: 'Save the Docker client version',
         description:
-          'Write the client version to a file.\n\nRun:\ndocker --version > /root/docker-version.txt',
+          'Step 1. Save the client version to a file:\ndocker --version > /root/docker-version.txt\n\nStep 2. Check the file:\ncat /root/docker-version.txt',
         checkCommand:
           "test -s /root/docker-version.txt && grep -qi 'docker version' /root/docker-version.txt",
         expectedOutputContains: null,
@@ -54,7 +54,7 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 2,
         title: 'Save the Docker server version',
         description:
-          "Ask the daemon for its version and save it.\n\nRun:\ndocker info --format '{{.ServerVersion}}' > /root/docker-server.txt",
+          "Step 1. Save the daemon version to a file:\ndocker info --format '{{.ServerVersion}}' > /root/docker-server.txt\n\nStep 2. Check the file:\ncat /root/docker-server.txt",
         checkCommand:
           "test -s /root/docker-server.txt && grep -Eq '^[0-9]+\\.[0-9]+' /root/docker-server.txt",
         expectedOutputContains: null,
@@ -64,7 +64,7 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 3,
         title: 'Run a container named hello-web',
         description:
-          'Start nginx in the background and publish port 8080.\n\nExample: docker run -d --name hello-web -p 8080:80 nginx:alpine',
+          'Step 1. Start nginx in the background:\ndocker run -d --name hello-web -p 8080:80 nginx:alpine\n\nStep 2. Confirm it is running:\ndocker ps --filter name=hello-web',
         checkCommand:
           "docker ps --filter name=^/hello-web$ --filter status=running --format '{{.Names}}' | grep -qx hello-web",
         expectedOutputContains: null,
@@ -74,7 +74,7 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 4,
         title: 'Verify the web server responds',
         description:
-          'Request the page served by the container.\n\nExample: curl -fsS http://localhost:8080',
+          'Step 1. Request the page:\ncurl -fsS http://localhost:8080\n\nThe output should contain "Welcome to nginx!".',
         checkCommand: "curl -fsS http://localhost:8080 | grep -qi 'welcome to nginx'",
         expectedOutputContains: null,
         expectedExitCode: 0,
@@ -97,8 +97,9 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 1,
         title: 'Create the app directory and Dockerfile',
         description:
-          'Create /root/hello-world/Dockerfile that starts from nginx:alpine. Use the Code tab to create the file, or use the terminal example below.\n\nExample:\nmkdir -p /root/hello-world\ncat > /root/hello-world/Dockerfile <<\'EOF\'\nFROM nginx:alpine\nCOPY index.html /usr/share/nginx/html/index.html\nEOF',
-        checkCommand: 'test -f /root/hello-world/Dockerfile',
+          "Step 1. Create the folder:\nmkdir -p /root/hello-world\n\nStep 2. Write the Dockerfile:\nprintf 'FROM nginx:alpine\\nCOPY index.html /usr/share/nginx/html/index.html\\n' > /root/hello-world/Dockerfile\n\nStep 3. Check it:\ncat /root/hello-world/Dockerfile",
+        checkCommand:
+          "test -s /root/hello-world/Dockerfile && grep -q '^FROM nginx:alpine' /root/hello-world/Dockerfile && grep -q '^COPY index.html /usr/share/nginx/html/index.html' /root/hello-world/Dockerfile",
         expectedOutputContains: null,
         expectedExitCode: 0,
       },
@@ -106,7 +107,7 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 2,
         title: 'Create the Hello World page',
         description:
-          'Create /root/hello-world/index.html containing a visible Hello World heading. The Code tab is the quickest way to write the page; the terminal example is below.\n\nExample:\ncat > /root/hello-world/index.html <<\'EOF\'\n<h1>Hello World!</h1>\nEOF',
+          "Step 1. Write the page:\nprintf '<h1>Hello World!</h1>\\n' > /root/hello-world/index.html\n\nStep 2. Check it:\ncat /root/hello-world/index.html",
         checkCommand:
           "test -f /root/hello-world/index.html && grep -qi 'hello world' /root/hello-world/index.html",
         expectedOutputContains: null,
@@ -116,7 +117,7 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 3,
         title: 'Build the image as hello-world:v1',
         description:
-          'Build the image and tag it hello-world:v1.\n\nExample: docker build -t hello-world:v1 /root/hello-world',
+          'Step 1. Build the image:\ndocker build -t hello-world:v1 /root/hello-world\n\nStep 2. Check the tag:\ndocker images hello-world:v1',
         checkCommand: "docker images --format '{{.Repository}}:{{.Tag}}' | grep -qx 'hello-world:v1'",
         expectedOutputContains: null,
         expectedExitCode: 0,
@@ -125,7 +126,7 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 4,
         title: 'Run the image as hello-web',
         description:
-          'Start your image on port 8080 with the container name hello-web.\n\nExample: docker run -d --name hello-web -p 8080:80 hello-world:v1',
+          'Step 1. Start your image:\ndocker run -d --name hello-web -p 8080:80 hello-world:v1\n\nStep 2. Check it is running:\ndocker ps --filter name=hello-web',
         checkCommand:
           "docker ps --filter name=^/hello-web$ --filter status=running --format '{{.Names}}' | grep -qx hello-web",
         expectedOutputContains: null,
@@ -135,7 +136,7 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 5,
         title: 'Verify the custom page is served',
         description:
-          'Check that the running container returns your Hello World page.\n\nExample: curl -fsS http://localhost:8080',
+          'Step 1. Request the page:\ncurl -fsS http://localhost:8080\n\nYou should see your Hello World heading.',
         checkCommand: "curl -fsS http://localhost:8080 | grep -qi 'hello world'",
         expectedOutputContains: null,
         expectedExitCode: 0,
@@ -158,7 +159,7 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 1,
         title: 'Run a container named web on port 8081',
         description:
-          'Start nginx in the background.\n\nExample: docker run -d --name web -p 8081:80 nginx:alpine',
+          'Step 1. Start nginx in the background:\ndocker run -d --name web -p 8081:80 nginx:alpine\n\nStep 2. Confirm it is running:\ndocker ps --filter name=web',
         checkCommand:
           "docker ps --filter name=^/web$ --filter status=running --format '{{.Names}}' | grep -qx web",
         expectedOutputContains: null,
@@ -168,7 +169,7 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 2,
         title: 'Inspect the container and save the output',
         description:
-          'Write the full inspect JSON to /root/web-inspect.json and confirm it is not empty.\n\nExample: docker inspect web > /root/web-inspect.json',
+          'Step 1. Save the inspect output:\ndocker inspect web > /root/web-inspect.json\n\nStep 2. Check the file:\nhead /root/web-inspect.json',
         checkCommand:
           "test -s /root/web-inspect.json && grep -q '\"Id\"' /root/web-inspect.json",
         expectedOutputContains: null,
@@ -178,7 +179,7 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 3,
         title: 'Create traffic and save the container logs',
         description:
-          'Request the page, then save the logs to /root/web.log. The log should show a GET request.\n\nExample:\ncurl -fsS http://localhost:8081 > /dev/null\ndocker logs web > /root/web.log 2>&1',
+          'Step 1. Generate a request:\ncurl -fsS http://localhost:8081 > /dev/null\n\nStep 2. Save the logs:\ndocker logs web > /root/web.log 2>&1\n\nStep 3. Check the log:\ncat /root/web.log',
         checkCommand: "test -s /root/web.log && grep -q 'GET /' /root/web.log",
         expectedOutputContains: null,
         expectedExitCode: 0,
@@ -187,7 +188,7 @@ export const MANUAL_LABS: SeedLab[] = [
         order: 4,
         title: 'Replace web with a container named web-final',
         description:
-          'Remove the old container and start a new one on the same port.\n\nExample:\ndocker rm -f web\ndocker run -d --name web-final -p 8081:80 nginx:alpine',
+          'Step 1. Remove the old container:\ndocker rm -f web\n\nStep 2. Start the replacement:\ndocker run -d --name web-final -p 8081:80 nginx:alpine\n\nStep 3. Confirm it is running:\ndocker ps --filter name=web-final',
         checkCommand:
           "docker ps --filter name=^/web-final$ --filter status=running --format '{{.Names}}' | grep -qx web-final && ! docker ps -a --filter name=^/web$ --format '{{.Names}}' | grep -qx web",
         expectedOutputContains: null,
@@ -451,7 +452,7 @@ export const DEMO_LABS: SeedLab[] = [
         order: 1,
         title: 'Create your demo folder',
         description:
-          'Create /root/demo and save your current directory.\n\nRun:\nmkdir -p /root/demo\npwd > /root/demo/pwd.txt',
+          'Step 1. Create the folder:\nmkdir -p /root/demo\n\nStep 2. Save the current directory:\npwd > /root/demo/pwd.txt\n\nStep 3. Check the file:\ncat /root/demo/pwd.txt',
         checkCommand:
           'test -s /root/demo/pwd.txt && grep -qx /root /root/demo/pwd.txt',
         expectedOutputContains: null,
@@ -461,7 +462,7 @@ export const DEMO_LABS: SeedLab[] = [
         order: 2,
         title: 'Write a short text file',
         description:
-          'Create /root/demo/about.txt with one line of text.\n\nRun:\necho "I am learning Docker" > /root/demo/about.txt\n\nYou can also use the Code tab.',
+          'Step 1. Write the file:\necho "I am learning Docker" > /root/demo/about.txt\n\nStep 2. Check it:\ncat /root/demo/about.txt\n\nYou can also use the Code tab.',
         checkCommand:
           "test -f /root/demo/about.txt && grep -q 'I am learning Docker' /root/demo/about.txt",
         expectedOutputContains: null,
@@ -471,7 +472,7 @@ export const DEMO_LABS: SeedLab[] = [
         order: 3,
         title: 'Save the Docker version',
         description:
-          'Save the client version to a file.\n\nRun:\ndocker --version > /root/demo/version.txt',
+          'Step 1. Save the client version:\ndocker --version > /root/demo/version.txt\n\nStep 2. Check it:\ncat /root/demo/version.txt',
         checkCommand:
           "test -s /root/demo/version.txt && grep -qi 'docker version' /root/demo/version.txt",
         expectedOutputContains: null,
@@ -481,7 +482,7 @@ export const DEMO_LABS: SeedLab[] = [
         order: 4,
         title: 'Run and check a web server',
         description:
-          'Start nginx on port 8080 and save its page.\n\nRun:\ndocker run -d --name basic-web -p 8080:80 nginx:alpine\ncurl -fsS http://localhost:8080 > /root/demo/page.html',
+          'Step 1. Start nginx:\ndocker run -d --name basic-web -p 8080:80 nginx:alpine\n\nStep 2. Save the page:\ncurl -fsS http://localhost:8080 > /root/demo/page.html\n\nStep 3. Confirm the container is running:\ndocker ps --filter name=basic-web',
         checkCommand:
           "docker ps --filter name=^/basic-web$ --filter status=running --format '{{.Names}}' | grep -qx basic-web && test -s /root/demo/page.html && grep -qi 'welcome to nginx' /root/demo/page.html",
         expectedOutputContains: null,

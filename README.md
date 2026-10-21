@@ -65,7 +65,7 @@ The teacher teaches CBAD to two sections, each split into two batches:
 | `CBADL3` | CBAD · CC3 · Batch A | Tuesday · 10:00–12:00 | Lab 206 | 2 |
 | `CBADL4` | CBAD · CC3 · Batch B | Thursday · 10:00–12:00 | Lab 206 | 0 |
 
-The seed follows the seven experiments in the CBAD handout (`23CSE3118`). CBADL1 receives all seven plus a short **Basic Linux and Docker tour** for demonstrations; the other batches receive a smaller plan so switching classes is visibly different. The teacher can assign **Lab 3 to CC1 Batch A and Lab 2 to CC1 Batch B** from the lab library.
+The seed follows the experiments in the CBAD handout (`23CSE3118`). The demo classes start with the short **Basic Linux and Docker tour** and the three introductory Docker labs (Labs 1-3); Labs 4-7 stay in the library for optional instructor assignment. The teacher can assign **Lab 3 to CC1 Batch A and Lab 2 to CC1 Batch B** from the lab library.
 
 Students can register from the login screen and join with a class code. The login screen also creates teacher accounts for this demo; a production deployment would gate that behind an administrator or invite.
 
@@ -80,7 +80,7 @@ Students can register from the login screen and join with a class code. The logi
 - See every class (course, section, batch, schedule, room, join code, live labs, evidence to review) on one overview and switch between them.
 - Create another section or batch; each gets its own join code, roster, and assignment plan.
 - Change a class's subject, section, batch, schedule, or room in place; the join code and roster stay the same.
-- Work from the seven handout labs, a short Basic demo tour, and two practice labs, with objectives, course outcomes, and estimated time.
+- Work from the three short assigned labs, a Basic demo tour, and two practice labs, with objectives, course outcomes, and estimated time. Advanced Labs 4-7 remain in the library.
 - Create or edit labs and checkable tasks; assign different labs to different batches of the same section.
 - Add submission instructions and choose whether evidence is required.
 - Monitor a student × task grid: names, live/stopped status, per-task pass marks, progress %, last activity, and last command.
@@ -367,7 +367,7 @@ It removes every container labeled `vlab.session`, then deletes sessions, task r
 Aim for 8–10 minutes. Two browser tabs are enough; three students looks better.
 
 1. **Teacher overview** — sign in as `teacher@vlab.dev`. Point out the four classes: CBAD · CC1 · Batch A/B and CBAD · CC3 · Batch A/B, each with its own schedule, room, join code, and count of live labs and evidence to review.
-2. **Switch class** — open **CBAD · CC1 · Batch A**. Show that the assignment dropdown starts with the **Basic Linux and Docker tour**, followed by the seven handout experiments. Switch to **CBAD · CC1 · Batch B** from the header; it has a different assignment plan.
+2. **Switch class** — open **CBAD · CC1 · Batch A**. Show that the assignment dropdown starts with the **Basic Linux and Docker tour**, followed by Labs 1-3. Switch to **CBAD · CC1 · Batch B** from the header; it has a different assignment plan.
 3. **Assign to a batch** — open **Lab library** → **Lab 3** → *Assign to a class* → `CBAD · CC1 · Batch B`. Explain that Batch A and Batch B are separate classes, so they can receive different labs.
 4. **Start a lab** — in a student tab, sign in as `student1@vlab.dev` (or register a student and join `CBADL1`). Open **Basic — Basic Linux and Docker tour** → **Start lab**. Point out the provisioning spinner: a real container is being created and the inner daemon is starting.
 5. When the terminal appears, run the six short commands:
@@ -564,7 +564,7 @@ Docker/DinD spike (no app required):
 cd backend && npm run spike
 ```
 
-End-to-end smoke test against a running stack. It logs in, starts a real DinD lab, proves the Lab 1 version tasks stay red until their files exist, types the Lab 1 commands through the actual terminal WebSocket, runs the checker, verifies the editor file API and Docker inventory, then creates and builds Lab 4 from files saved through the same API. It finishes with the Basic demo tour and verifies the teacher dashboard:
+End-to-end smoke test against a running stack. It logs in, starts real DinD labs, proves the Lab 1 version tasks stay red until their files exist, types the Lab 1 and Lab 2 commands through the actual terminal WebSocket, runs the checker, verifies the editor file API and Docker inventory, and confirms Labs 4-7 are not assigned. It finishes with the Basic demo tour and verifies the teacher dashboard:
 
 ```bash
 cd backend && npm run smoke

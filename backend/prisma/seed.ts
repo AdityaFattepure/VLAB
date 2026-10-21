@@ -62,18 +62,21 @@ const COURSE = {
   courseShort: 'CBAD',
 };
 
+// The demo classes intentionally start with the short demo tour and the three
+// introductory Docker labs. Labs 4-7 stay in the library for optional use but
+// are not assigned by the seed.
 const ASSIGNMENTS: Record<string, { labId: string; dueInDays: number; instructions: string }[]> = {
   CBADL1: [
     {
       labId: 'seed-lab-demo',
       dueInDays: 1,
       instructions:
-        'Run the six short commands and open the Files and Docker tabs for your teacher.',
+        'Run the numbered commands and open the Files and Docker tabs for your teacher.',
     },
     {
       labId: 'seed-lab-01',
       dueInDays: 3,
-      instructions: 'Complete every task and upload the terminal screenshots for each step.',
+      instructions: 'Complete each numbered step and upload the terminal screenshots.',
     },
     {
       labId: 'seed-lab-02',
@@ -85,32 +88,17 @@ const ASSIGNMENTS: Record<string, { labId: string; dueInDays: number; instructio
       dueInDays: 10,
       instructions: 'Submit the inspect JSON, the logs, and a screenshot of the replacement container.',
     },
-    {
-      labId: 'seed-lab-04',
-      dueInDays: 14,
-      instructions: 'Submit the service response, the docker run command, and the logs.',
-    },
-    {
-      labId: 'seed-lab-05',
-      dueInDays: 18,
-      instructions: 'Submit a screenshot proving both containers share the network.',
-    },
-    {
-      labId: 'seed-lab-06',
-      dueInDays: 22,
-      instructions: 'Submit the replica list before and after scaling down, plus the stats output.',
-    },
-    {
-      labId: 'seed-lab-07',
-      dueInDays: 25,
-      instructions: 'Submit the stats, process list, health report, and your monitoring note.',
-    },
   ],
   CBADL2: [
     {
+      labId: 'seed-lab-demo',
+      dueInDays: 1,
+      instructions: 'Run the numbered commands and open the Files and Docker tabs for your teacher.',
+    },
+    {
       labId: 'seed-lab-01',
       dueInDays: 4,
-      instructions: 'Complete the verification tasks and upload your screenshots.',
+      instructions: 'Complete each numbered step and upload the terminal screenshots.',
     },
     {
       labId: 'seed-lab-02',
@@ -120,21 +108,31 @@ const ASSIGNMENTS: Record<string, { labId: string; dueInDays: number; instructio
   ],
   CBADL3: [
     {
-      labId: 'seed-lab-03',
-      dueInDays: 5,
-      instructions: 'Submit the inspect output, the logs, and the final container screenshot.',
+      labId: 'seed-lab-demo',
+      dueInDays: 1,
+      instructions: 'Run the numbered commands and open the Files and Docker tabs for your teacher.',
     },
     {
-      labId: 'seed-lab-04',
+      labId: 'seed-lab-01',
+      dueInDays: 5,
+      instructions: 'Complete each numbered step and upload the terminal screenshots.',
+    },
+    {
+      labId: 'seed-lab-03',
       dueInDays: 9,
-      instructions: 'Submit the service response and the command you used.',
+      instructions: 'Submit the inspect output, the logs, and the final container screenshot.',
     },
   ],
   CBADL4: [
     {
+      labId: 'seed-lab-demo',
+      dueInDays: 1,
+      instructions: 'Run the numbered commands and open the Files and Docker tabs for your teacher.',
+    },
+    {
       labId: 'seed-lab-01',
       dueInDays: 6,
-      instructions: 'Complete the verification tasks and upload your screenshots.',
+      instructions: 'Complete each numbered step and upload the terminal screenshots.',
     },
   ],
 };
@@ -194,6 +192,16 @@ async function upsertLab(lab: SeedLab, teacherId: string) {
     });
   }
 
+  // Remove tasks that no longer exist in the source definition. This keeps
+  // old duplicated steps (for example a malformed sixth Lab 2 task) from
+  // surviving a reseed and appearing in the student UI.
+  await prisma.task.deleteMany({
+    where: {
+      labId: row.id,
+      order: { notIn: lab.tasks.map((task) => task.order) },
+    },
+  });
+
   return row;
 }
 
@@ -244,10 +252,21 @@ async function main() {
     classes.set(klass.joinCode, row);
   }
 
+  const seededClassIds = [...classes.values()].map((klass) => klass.id);
   for (const student of STUDENTS) {
     const user = students.get(student.email);
     const klass = classes.get(student.classCode);
     if (!user || !klass) continue;
+
+    // Seeded students belong to exactly one demo class. Remove memberships
+    // left over from earlier manual testing so the assignment list does not
+    // show the same lab twice.
+    await prisma.classMember.deleteMany({
+      where: {
+        studentId: user.id,
+        classId: { in: seededClassIds.filter((classId) => classId !== klass.id) },
+      },
+    });
     await prisma.classMember.upsert({
       where: { classId_studentId: { classId: klass.id, studentId: user.id } },
       update: {},
@@ -278,6 +297,14 @@ async function main() {
       where: { id: { in: legacyLabs.map((lab) => lab.id) } },
     });
   }
+
+  // Labs 4-7 were part of an earlier teaching plan. They remain in the lab
+  // library for optional instructor use, but the seeded classes should not
+  // keep stale assignments to them after an upgrade.
+  const difficultLabIds = ['seed-lab-04', 'seed-lab-05', 'seed-lab-06', 'seed-lab-07'];
+  await prisma.assignment.deleteMany({
+    where: { labId: { in: difficultLabIds } },
+  });
 
   // Keep the first section on the handout experiments plus the short demo
   // tour. Practice labs remain available in the library but are not part of

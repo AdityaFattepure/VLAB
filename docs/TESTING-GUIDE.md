@@ -78,8 +78,8 @@ classes uses the same route with a different id, so the teacher does not sign in
 again.
 
 **Check:** the grid shows the seeded students, and the dropdown starts with the
-**Basic** tour followed by the seven handout labs. Open **CBAD · CC1 · Batch B**
-and confirm its plan is different.
+**Basic** tour followed by the three short Docker labs (Labs 1-3). Open
+**CBAD · CC1 · Batch B** and confirm its plan is different.
 
 ---
 
@@ -284,10 +284,12 @@ asks for the client version.
 
 ---
 
-## 6b. Solve Lab 4 from the editor
+## 6b. Optional: solve Lab 4 from the editor
 
-Lab 4 is the end-to-end test of the workspace: source files are created in the
-Code tab, then built and run in the terminal.
+Lab 4 stays in the library as an advanced exercise but is not assigned by the
+seed. Assign it from **Lab library** first, then use it as the end-to-end test of
+the workspace: source files are created in the Code tab, then built and run in
+the terminal.
 
 1. From **My assignments**, open **Lab 4 — A microservice that sums two
    numbers** and start it.
@@ -574,12 +576,13 @@ upload, protected download, review, and disallowed file types.
 
 `npm run smoke` prints one `PASS` per assertion and ends with `SMOKE OK`. It
 creates a real container, proves the Lab 1 version tasks fail before the
-student creates evidence, types the four Lab 1 commands through the terminal
+student creates evidence, types the Lab 1 commands through the terminal
 WebSocket, runs the checker, verifies the dashboard, exercises file save/read,
-the teacher read-only view, and the Docker inventory, then builds **Lab 4** from
-files saved through the editor API. It finishes by running the **Basic demo
-lab** and checking its four tasks, file, and `basic-web` container. Every
-session and container is stopped at the end.
+the teacher read-only view, and the Docker inventory. It then runs **Lab 2**
+with the numbered `printf` commands and confirms Labs 4-7 are not assigned.
+It finishes by running the **Basic demo lab** and checking its four tasks,
+file, and `basic-web` container. Every session and container is stopped at the
+end.
 
 ```powershell
 powershell -File scripts\preflight.ps1     # demo readiness

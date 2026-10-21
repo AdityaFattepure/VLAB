@@ -44,7 +44,7 @@ Use the ER diagram from `README.md`. Point out:
 
 - `auth` — login, teacher/student registration, JWT, role checks.
 - `classes` — course · section · batch classes, join codes, rosters, class switching, dashboard aggregation.
-- `labs` / `tasks` — the seven handout experiments, the Basic demo tour, practice labs, and check definitions.
+- `labs` / `tasks` — the handout experiments, the Basic demo tour, practice labs, and check definitions. Labs 1-3 plus the tour are assigned by the seed; Labs 4-7 stay in the library.
 - `assignments` — lab ↔ class plans, due dates, submission instructions.
 - `submissions` — evidence uploads, feedback, grades, protected downloads.
 - `sessions` — container provisioning, readiness, stop/reset, idle cleanup.
@@ -70,7 +70,7 @@ Follow `README.md` → Teaching demo. The strongest 30 seconds:
 - Student **Code** tab: open `/root/demo/about.txt`; **Docker** tab shows `basic-web` and `nginx:alpine`.
 - Teacher class workspace: the same student's name, task ticks, last command.
 - Teacher drawer: read-only terminal, **Files · read-only**, and the same Docker inventory.
-- Optional deeper demo: build Lab 4 from `app.sh` + `Dockerfile`; `curl` returns `42`.
+- Optional deeper demo: assign Lab 4 from the library, then build it from `app.sh` + `Dockerfile`; `curl` returns `42`.
 - Teacher reviews a screenshot and the student sees the grade.
 
 ## 7. Security and trade-offs
@@ -120,7 +120,7 @@ Follow `README.md` → Teaching demo. The strongest 30 seconds:
 - [ ] Basic tour appears first in CBADL1 and passes all four checks
 - [ ] Version tasks stay red until their files exist, then turn green
 - [ ] Code tab opens `/root/demo/about.txt` and Docker tab lists `basic-web` / `nginx:alpine`
-- [ ] Lab 4 builds from `app.sh` + `Dockerfile` and all four checks pass
+- [ ] Optional: assign Lab 4, then build it from `app.sh` + `Dockerfile` and pass all four checks
 - [ ] Teacher drawer shows the read-only terminal, read-only files, and Docker inventory
 - [ ] Evidence upload and teacher review work end to end
 - [ ] `docker compose exec backend npm run smoke` prints `SMOKE OK`

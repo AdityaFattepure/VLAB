@@ -4,7 +4,7 @@
  *   npm run smoke                       # http://localhost:3000
  *   BASE_URL=http://host:3000 npm run smoke
  *
- * It logs in as a seeded student, starts a real DinD lab, types the three
+ * It logs in as a seeded student, starts real DinD labs, types the numbered
  * solution commands through the actual terminal WebSocket, runs the checker,
  * and verifies the teacher dashboard reflects the result.
  */
@@ -130,6 +130,16 @@ async function main() {
   );
   check(Boolean(lab), 'seeded Lab 1 assignment is visible to the student');
   check(lab?.lab.tasks.length === 4, 'Lab 1 has four tasks');
+
+  const advancedCodes = new Set(['Lab 4', 'Lab 5', 'Lab 6', 'Lab 7']);
+  check(
+    assignments.every((entry: any) => !advancedCodes.has(entry.lab.code)),
+    'difficult Labs 4-7 are not assigned to the demo class',
+  );
+
+  const lab2 = assignments.find((entry: any) => entry.lab.code === 'Lab 2');
+  check(Boolean(lab2), 'seeded Lab 2 assignment is visible to the student');
+  check(lab2?.lab.tasks.length === 5, 'Lab 2 has five tasks after seed cleanup');
 
   const session = await api('/api/sessions', {
     method: 'POST',
@@ -260,109 +270,92 @@ async function main() {
   });
   check(stopped.status === 'stopped', 'session stopped and container removed');
 
-  const lab4 = assignments.find((entry: any) => entry.lab.code === 'Lab 4');
-  check(Boolean(lab4), 'seeded Lab 4 assignment is visible to the student');
-
-  if (lab4) {
-    const lab4Session = await api('/api/sessions', {
+  if (lab2) {
+    const lab2Session = await api('/api/sessions', {
       method: 'POST',
       token: student.token,
-      body: { assignmentId: lab4.id },
+      body: { assignmentId: lab2.id },
     });
-    const lab4Ready = await poll(
+    const lab2Ready = await poll(
       async () => {
-        const current = await api(`/api/sessions/${lab4Session.id}`, {
+        const current = await api(`/api/sessions/${lab2Session.id}`, {
           token: student.token,
         });
         if (current.status === 'error') throw new Error(current.errorMessage ?? 'session error');
         return current.status === 'ready' ? current : null;
       },
       150000,
-      'the Lab 4 container to become ready',
+      'the Lab 2 container to become ready',
     );
-    check(lab4Ready.status === 'ready', 'Lab 4 DinD container ready');
+    check(lab2Ready.status === 'ready', 'Lab 2 DinD container ready');
 
-    const appScript = `#!/bin/sh
-set -eu
-sum=$((A+B))
-printf '%s\\n' "$sum" > /usr/share/nginx/html/index.html
-exec nginx -g 'daemon off;'
-`;
-    const dockerfile = `FROM nginx:alpine
-COPY app.sh /usr/local/bin/app.sh
-RUN chmod +x /usr/local/bin/app.sh
-CMD ["/usr/local/bin/app.sh"]
-`;
-
-    await api(`/api/sessions/${lab4Session.id}/files/content`, {
-      method: 'PUT',
-      token: student.token,
-      body: { path: '/root/sum-service/app.sh', content: appScript },
-    });
-    await api(`/api/sessions/${lab4Session.id}/files/content`, {
-      method: 'PUT',
-      token: student.token,
-      body: { path: '/root/sum-service/Dockerfile', content: dockerfile },
-    });
-    check(true, 'editor creates both Lab 4 source files');
-
-    const lab4KnownCommands = new Set<string>(
+    const lab2KnownCommands = new Set<string>(
       (
-        await api(`/api/sessions/${lab4Session.id}/commands?limit=200`, {
+        await api(`/api/sessions/${lab2Session.id}/commands?limit=200`, {
           token: student.token,
         })
       ).map((entry: any) => entry.id as string),
     );
-    const lab4Ws = await openTerminal(lab4Session.id, student.token);
-    const lab4Commands = [
-      'docker build -t sum-service:v1 /root/sum-service',
-      'docker run -d --name sum-service -p 5000:80 -e A=12 -e B=30 sum-service:v1',
-      'curl -fsS http://localhost:5000 | tee /root/sum-result.txt',
-      'docker logs sum-service > /root/sum-service.log 2>&1',
-      'docker inspect --format "{{.State.Status}} {{.Config.Image}}" sum-service > /root/sum-inspect.txt',
+    const lab2Ws = await openTerminal(lab2Session.id, student.token);
+    const lab2Commands = [
+      'mkdir -p /root/hello-world',
+      "printf 'FROM nginx:alpine\\nCOPY index.html /usr/share/nginx/html/index.html\\n' > /root/hello-world/Dockerfile",
+      "printf '<h1>Hello World!</h1>\\n' > /root/hello-world/index.html",
+      'docker build -t hello-world:v1 /root/hello-world',
+      'docker run -d --name hello-web -p 8080:80 hello-world:v1',
+      'curl -fsS http://localhost:8080',
     ];
 
-    for (const command of lab4Commands) {
+    for (const command of lab2Commands) {
       await typeAndWaitForLog(
-        lab4Ws,
-        lab4Session.id,
+        lab2Ws,
+        lab2Session.id,
         student.token,
         command,
-        lab4KnownCommands,
+        lab2KnownCommands,
       );
     }
-    check(true, 'Lab 4 build, run, and evidence commands completed');
+    check(true, 'Lab 2 numbered commands completed');
 
-    const lab4Checked = await api(`/api/sessions/${lab4Session.id}/check`, {
+    const lab2Checked = await api(`/api/sessions/${lab2Session.id}/check`, {
       method: 'POST',
       token: student.token,
     });
     check(
-      lab4Checked.results.every((result: any) => result.passed),
-      'Lab 4 source build passes all four checks',
-      lab4Checked.results.map((result: any) => (result.passed ? '1' : '0')).join(''),
+      lab2Checked.results.every((result: any) => result.passed),
+      'Lab 2 hello-world build passes all five checks',
+      lab2Checked.results.map((result: any) => (result.passed ? '1' : '0')).join(''),
     );
 
-    const lab4Inventory = await api(`/api/sessions/${lab4Session.id}/docker`, {
+    const lab2Inventory = await api(`/api/sessions/${lab2Session.id}/docker`, {
       token: teacher.token,
     });
     check(
-      lab4Inventory.containers.some((row: any) => row.name === 'sum-service'),
-      'Docker inventory shows the Lab 4 service container',
+      lab2Inventory.containers.some((row: any) => row.name === 'hello-web'),
+      'Docker inventory shows the Lab 2 web container',
     );
     check(
-      lab4Inventory.images.some(
-        (row: any) => row.repository === 'sum-service' && row.tag === 'v1',
+      lab2Inventory.images.some(
+        (row: any) => row.repository === 'hello-world' && row.tag === 'v1',
       ),
-      'Docker inventory shows the built sum-service:v1 image',
+      'Docker inventory shows the built hello-world:v1 image',
     );
 
-    lab4Ws.close();
-    const lab4Stopped = await api(`/api/sessions/${lab4Session.id}`, {
+    const lab2File = await api(
+      `/api/sessions/${lab2Session.id}/files/content?path=/root/hello-world/index.html`,
+      { token: teacher.token },
+    );
+    check(
+      lab2File.content.includes('Hello World'),
+      'teacher can open the Lab 2 page read-only',
+    );
+
+    lab2Ws.close();
+    const lab2Stopped = await api(`/api/sessions/${lab2Session.id}`, {
       method: 'DELETE',
       token: student.token,
     });
-    check(lab4Stopped.status === 'stopped', 'Lab 4 session stopped and container removed');
+    check(lab2Stopped.status === 'stopped', 'Lab 2 session stopped and container removed');
   }
 
   const basic = assignments.find((entry: any) => entry.lab.code === 'Basic');
